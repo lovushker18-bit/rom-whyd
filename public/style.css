@@ -1027,3 +1027,70 @@ body{font-family:'Manrope',sans-serif;letter-spacing:.005em}
 .romComposer{margin:0 0 38px;padding:28px;background:#141b15;border:1px solid #344434;border-radius:20px;display:flex;flex-direction:column;gap:17px}.romComposer.hidden{display:none}.romComposerHeading{display:flex;justify-content:space-between;align-items:start}.romComposerHeading h3{font-size:24px;margin:8px 0 0}.romComposer label{display:flex;flex-direction:column;gap:8px;font-size:13px;color:#b9c6ba}.romComposer input,.romComposer textarea{background:#0b100c;border:1px solid #364237;border-radius:11px;color:#f4f7f3;padding:13px 14px;font:inherit;width:100%;box-sizing:border-box}.romComposer input[name=rating]{max-width:200px;font-size:22px;font-weight:800}.romComposer textarea{resize:vertical}.romOptional{font-size:11px;color:#809080}.romClose{background:transparent;color:#c2cec1;border:0;cursor:pointer;font-size:18px}.romComposer .button{align-self:start}
 .romReviews{display:grid;gap:14px;padding-top:10px}.romReview{padding:22px 24px;background:#111712;border:1px solid #2b372d;border-radius:17px}.romReviewUser{display:flex;align-items:center;gap:13px}.romReviewAvatar{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:#b8ff6a;color:#14200e;font-weight:850;overflow:hidden;flex-shrink:0}.romReviewAvatar img{width:100%;height:100%;object-fit:cover}.romReviewIdentity{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}.romReviewIdentity strong{font-size:14px}.romReviewIdentity small{color:#829183;font-size:11px}.romReviewScore{font-size:26px;color:#b8ff6a;letter-spacing:-.04em}.romReviewScore small{font-size:12px;color:#91a18f}.romReviewBody{margin:18px 0 0 57px}.romReviewBody h3{font-size:17px;margin:0 0 8px}.romReviewBody p{font-size:14px;line-height:1.75;color:#c5d0c5;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}.romOnlyRating{background:#0e140f;border-color:#222e23}.romNoReviews{padding:28px;color:#8c9b8e;text-align:center}
 @media(max-width:740px){#releaseContent{padding:18px 16px 70px}.romReleaseHero{grid-template-columns:1fr;gap:22px}.romReleaseCover{width:min(100%,290px)}.romReleaseMeta h1{font-size:48px;margin:12px 0 18px}.romScoreLine strong{font-size:48px}.romTrack{gap:10px}.romPlayer{min-width:100%;max-width:none}.romReviewBody{margin-left:0}.romComposer{padding:19px}}
+
+/* ROM v9: bolder release typography, cinematic artwork, expandable player */
+#releaseContent{max-width:1240px;padding:34px 32px 110px}
+.romReleaseHero{grid-template-columns:minmax(260px,390px) minmax(0,1fr);gap:clamp(35px,5vw,86px);align-items:center;margin:38px 0 78px}
+.romReleaseCover{border-radius:24px;border:1px solid rgba(185,255,110,.15);box-shadow:0 35px 90px #000b,0 0 90px rgba(170,255,108,.045);transition:transform .4s ease,box-shadow .4s ease}
+.romReleaseCover:hover{transform:translateY(-4px);box-shadow:0 42px 100px #000c,0 0 100px rgba(170,255,108,.09)}
+.romReleaseMeta .eyebrow{font-size:13px;letter-spacing:.13em;color:#b9ff73;font-weight:850}
+.romReleaseMeta h1{font-size:clamp(58px,7vw,110px);font-weight:900;letter-spacing:-.075em;line-height:.99;margin:25px 0 42px}
+.romScoreLine{gap:24px;align-items:center;margin-bottom:28px}
+.romScoreLine strong{font-size:clamp(70px,7vw,100px);font-weight:900;letter-spacing:-.075em}
+.romScoreLine strong small{font-size:25px;font-weight:700;letter-spacing:-.02em}
+.romScoreLine>span{font-size:16px;font-weight:650}
+.romRateButton{font-size:16px;padding:17px 25px;border-radius:12px;font-weight:850}
+.romSection{margin:58px 0}
+.romSectionTitle{padding-bottom:19px;margin-bottom:15px}
+.romSectionTitle h2{font-size:clamp(26px,3vw,34px);letter-spacing:-.045em;font-weight:850}
+.romSectionTitle span{font-size:14px;font-weight:700}
+.romTrack{padding:21px 15px;gap:20px;border-radius:13px;transition:background .2s ease}
+.romTrack:hover{background:#131b14}
+.romTrackIndex{font-size:15px;font-weight:800;color:#b3ccaa}
+.romTrackTitle{gap:6px}
+.romTrackTitle strong{font-size:19px;font-weight:850;letter-spacing:-.025em}
+.romTrackTitle small{font-size:14px}
+.romPlayer{min-width:unset;flex:0 1 auto;max-width:100%;padding:5px;gap:0;border:1px solid transparent;background:transparent;transition:background .3s,border-color .3s,padding .3s;overflow:hidden}
+.romPlayer.is-open{padding:8px 12px;gap:13px;background:#182219;border-color:#3a503b}
+.romPlay{width:48px;height:48px;font-size:18px;transition:transform .2s,background .2s}
+.romPlay:hover{transform:scale(1.07);background:#d2ff9e}
+.romPlayerExpanded{display:flex;align-items:center;gap:12px;max-width:0;opacity:0;overflow:hidden;visibility:hidden;transition:max-width .38s ease,opacity .25s ease}
+.romPlayer.is-open .romPlayerExpanded{max-width:450px;opacity:1;visibility:visible}
+.romClock{font-size:12px;font-weight:700}
+.romSeek{width:150px;flex:1;min-width:80px}
+.romVolume{width:75px}
+.romReview{padding:30px 34px;border-radius:21px;background:linear-gradient(145deg,#151e16,#101610);transition:border-color .2s,transform .2s}
+.romReview:hover{border-color:#506b47;transform:translateY(-2px)}
+.romReviewAvatar{width:54px;height:54px;font-size:20px}
+.romReviewIdentity strong{font-size:17px}
+.romReviewIdentity small{font-size:13px}
+.romReviewScore{font-size:38px;font-weight:900}
+.romReviewScore small{font-size:15px}
+.romReviewBody{margin:22px 0 0 67px}
+.romReviewBody h3{font-size:23px;letter-spacing:-.035em;margin-bottom:12px}
+.romReviewBody p{font-size:17px;line-height:1.85;color:#d2ddd1}
+.romOnlyRating{background:#101611}
+.romComposer{padding:35px;border-radius:22px}
+.romComposerHeading h3{font-size:30px}
+.romComposer label{font-size:15px;font-weight:650}
+.romComposer input,.romComposer textarea{font-size:16px;padding:16px}
+@media(max-width:740px){
+ #releaseContent{padding:18px 17px 80px}
+ .romReleaseHero{grid-template-columns:1fr;gap:26px;margin:18px 0 55px}
+ .romReleaseCover{width:min(100%,350px)}
+ .romReleaseMeta h1{font-size:clamp(54px,12vw,80px);margin:16px 0 25px}
+ .romScoreLine strong{font-size:70px}
+ .romSection{margin:43px 0}
+ .romTrack{padding:18px 8px;gap:10px}
+ .romTrackTitle strong{font-size:17px}
+ .romPlayer{margin-left:auto}
+ .romPlayer.is-open{width:100%;flex-basis:100%;justify-content:flex-start}
+ .romPlayer.is-open .romPlayerExpanded{flex:1;min-width:0}
+ .romSeek{min-width:40px;width:100%}
+ .romVolume{width:42px}
+ .romReview{padding:22px 19px}
+ .romReviewBody{margin-left:0}
+ .romReviewBody p{font-size:16px}
+ .romComposer{padding:20px}
+}
+@media(prefers-reduced-motion:reduce){.romPlayerExpanded,.romReleaseCover,.romReview{transition:none}}
