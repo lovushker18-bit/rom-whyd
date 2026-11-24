@@ -1,3 +1,4 @@
+import {handleUpload} from '@vercel/blob/client';
 import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
@@ -29,6 +30,21 @@ const validRating=x=>Number.isFinite(Number(x))&&Number(x)>=0&&Number(x)<=10&&Nu
 const albumsSql=`SELECT a.*,ar.name artist_name,ROUND(AVG(r.rating),2) average_rating,COUNT(r.id)::int rating_count FROM albums a JOIN artists ar ON ar.id=a.artist_id LEFT JOIN ratings r ON r.album_id=a.id`;
 export default async function handler(req,res){try{
 const path=new URL(req.url,'https://rom.local').pathname,method=req.method,b=req.body||{};
+if(path==='/api/blob-upload'&&method==='POST'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ if(!u.email_verified)return send(res,403,{error:'Подтверди почту.'});
+ if(!process.env.BLOB_READ_WRITE_TOKEN)return send(res,503,{error:'Администратор не подключил Vercel Blob.'});
+ try{
+  const result=await handleUpload({body:b,request:req,onBeforeGenerateToken:async(pathname,clientPayload)=>{
+   const kind=String(pathname).startsWith('covers/')?'cover':String(pathname).startsWith('audio/')?'audio':null;
+   if(!kind)throw Error('Недопустимый путь загрузки.');
+   if(kind==='audio'&&!u.is_artist&&!u.is_verified&&!u.is_admin)throw Error('Аудио могут загружать только артисты.');
+   if(kind==='cover'&&!u.is_artist&&!u.is_verified&&!u.is_admin)throw Error('Нет доступа к загрузке обложек.');
+   return {allowedContentTypes:kind==='cover'?['image/png','image/jpeg']:['audio/mpeg','audio/mp3','audio/flac','audio/x-flac','audio/wav','audio/wave','audio/x-wav'],maximumSizeInBytes:kind==='cover'?4*1024*1024:40*1024*1024,addRandomSuffix:true,tokenPayload:JSON.stringify({userId:u.id,kind})};
+  },onUploadCompleted:async()=>{}});
+  return send(res,200,result);
+ }catch(e){console.error('Blob upload error:',e.message);return send(res,400,{error:'Ошибка загрузки: '+e.message});}
+}
 if(path==='/api/verify-code'&&method==='POST'){
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
  if(u.email_verified)return send(res,200,{ok:true});
@@ -48,10 +64,10 @@ if(path==='/api/submissions'&&method==='POST'){
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
  if(!u.email_verified)return send(res,403,{error:'Сначала подтверди почту.'});
  if(!u.is_artist)return send(res,403,{error:'Отправлять треки могут только артисты с зелёной ноткой.'});
- const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),audio=String(b.audio_url||'').trim(),cover=String(b.cover_url||'').trim(),description=String(b.description||'').trim();
- if(!title||title.length>150||!artist||artist.length>120||description.length>2000||!/^https:\/\/[^\s]+$/i.test(audio)||audio.length>1500||cover&&(!/^https:\/\/[^\s]+$/i.test(cover)||cover.length>1500))return send(res,400,{error:'Укажи исполнителя, название и HTTPS-ссылку на трек. Проверь длину полей.'});
+ const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),featuring=String(b.featuring||'').trim(),audio=String(b.audio_url||'').trim(),cover=String(b.cover_url||'').trim(),description=String(b.description||'').trim();
+ if(!title||title.length>150||!artist||artist.length>120||featuring.length>250||description.length>2000||!/^https:\/\/[^\s]+$/i.test(audio)||audio.length>1500||cover&&(!/^https:\/\/[^\s]+$/i.test(cover)||cover.length>1500))return send(res,400,{error:'Укажи исполнителя, название и HTTPS-ссылку на трек. Проверь длину полей.'});
  const count=await q(`SELECT COUNT(*)::int n FROM track_submissions WHERE user_id=$1 AND created_at>NOW()-INTERVAL '1 day'`,[u.id]);if(count.rows[0].n>=10)return send(res,429,{error:'Не больше 10 заявок в сутки.'});
- const r=await q('INSERT INTO track_submissions(user_id,title,artist_name,audio_url,cover_url,description) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[u.id,title,artist,audio,cover,description]);return send(res,201,{id:r.rows[0].id,status:'pending'});
+ const r=await q('INSERT INTO track_submissions(user_id,title,artist_name,audio_url,cover_url,description,featuring) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id',[u.id,title,artist,audio,cover,description,featuring]);return send(res,201,{id:r.rows[0].id,status:'pending'});
 }
 if(path==='/api/submissions'&&method==='GET'){
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
@@ -76,7 +92,25 @@ if(adminUser&&method==='PATCH'){
 if(path==='/api/artists'&&method==='GET'){const r=await q('SELECT * FROM artists ORDER BY name');return send(res,200,{artists:r.rows});}
 if(path==='/api/albums'&&method==='GET'){const r=await q(`${albumsSql} GROUP BY a.id,ar.name ORDER BY a.created_at DESC LIMIT 300`);return send(res,200,{albums:r.rows});}
 const album=path.match(/^\/api\/albums\/(\d+)$/);if(album&&method==='GET'){const r=await q(`${albumsSql} WHERE a.id=$1 GROUP BY a.id,ar.name`,[album[1]]);if(!r.rowCount)return send(res,404,{error:'Релиз не найден.'});const tracks=await q('SELECT * FROM tracks WHERE album_id=$1 ORDER BY track_number',[album[1]]);const reviews=await q('SELECT r.*,u.username,u.is_artist FROM reviews r JOIN users u ON u.id=r.user_id WHERE album_id=$1 ORDER BY r.created_at DESC',[album[1]]);return send(res,200,{album:r.rows[0],tracks:tracks.rows,reviews:reviews.rows});}
-if(path==='/api/albums'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.is_verified&&!u.is_admin)return send(res,403,{error:'Добавлять релизы могут только пользователи с галочкой.'});if(!b.title||!b.artist_id)return send(res,400,{error:'Укажи название и исполнителя.'});const r=await q('INSERT INTO albums(artist_id,title,cover_url,release_date,description) VALUES($1,$2,$3,$4,$5) RETURNING id',[b.artist_id,String(b.title).slice(0,200),String(b.cover_url||''),String(b.release_date||''),String(b.description||'')]);return send(res,201,{id:r.rows[0].id});}
+if(path==='/api/albums'&&method==='POST'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ if(!u.is_verified&&!u.is_admin)return send(res,403,{error:'Добавлять релизы могут только пользователи с галочкой.'});
+ const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),featuring=String(b.featuring||'').trim(),cover=String(b.cover_url||'').trim();
+ const tracks=b.tracks,kind=b.release_type;
+ if(!title||title.length>200||!artist||artist.length>120||featuring.length>250)return send(res,400,{error:'Укажи название и исполнителя. Проверь длину полей.'});
+ if(cover&&!/^https:\/\/[^\s]+$/i.test(cover))return send(res,400,{error:'Некорректная ссылка на обложку.'});
+ if(!Array.isArray(tracks)||tracks.length<1||tracks.length>30)return send(res,400,{error:'Треклист должен содержать от 1 до 30 треков.'});
+ if(!['single','multi_single','ep','album'].includes(kind)||kind==='single'&&tracks.length!==1||kind==='multi_single'&&tracks.length!==2)return send(res,400,{error:'Тип релиза не соответствует количеству треков.'});
+ for(const t of tracks){if(!t||typeof t!=='object'||!String(t.title||'').trim()||String(t.title).length>200||String(t.featuring||'').length>250||!/^https:\/\/[^\s]+$/i.test(String(t.audio_url||''))||String(t.audio_url).length>1500)return send(res,400,{error:'Проверь названия и аудиофайлы всех треков.'});}
+ const client=await db().connect();try{
+  await client.query('BEGIN');
+  const ar=await client.query('INSERT INTO artists(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id',[artist]);
+  const r=await client.query('INSERT INTO albums(artist_id,title,cover_url,release_date,description,featuring,audio_url,release_type) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',[ar.rows[0].id,title,cover,String(b.release_date||''),String(b.description||'').slice(0,5000),featuring,tracks[0].audio_url,kind]);
+  for(let i=0;i<tracks.length;i++)await client.query('INSERT INTO tracks(album_id,title,track_number,featuring,audio_url) VALUES($1,$2,$3,$4,$5)',[r.rows[0].id,String(tracks[i].title).trim(),i+1,String(tracks[i].featuring||'').trim(),tracks[i].audio_url]);
+  await client.query('COMMIT');return send(res,201,{id:r.rows[0].id});
+ }catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
+
+}
 if(path==='/api/ratings'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.email_verified)return send(res,403,{error:'Подтверди почту, чтобы ставить оценки.'});if(!validRating(b.rating)||!Number.isInteger(Number(b.album_id)))return send(res,400,{error:'Оценка от 0 до 10 с шагом 0.5.'});await q('INSERT INTO ratings(user_id,album_id,rating) VALUES($1,$2,$3) ON CONFLICT(user_id,album_id) DO UPDATE SET rating=EXCLUDED.rating,updated_at=NOW()',[u.id,b.album_id,b.rating]);return send(res,200,{ok:true});}
 if(path==='/api/reviews'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.email_verified)return send(res,403,{error:'Подтверди почту, чтобы писать рецензии.'});if(!validRating(b.rating)||!b.album_id||!String(b.title||'').trim()||!String(b.body||'').trim())return send(res,400,{error:'Заполни оценку, заголовок и текст.'});const r=await q('INSERT INTO reviews(user_id,album_id,rating,title,body) VALUES($1,$2,$3,$4,$5) RETURNING id',[u.id,b.album_id,b.rating,String(b.title).slice(0,150),String(b.body).slice(0,10000)]);return send(res,201,{id:r.rows[0].id});}
 if(path==='/api/comments'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.email_verified)return send(res,403,{error:'Подтверди почту.'});if(!b.review_id||!String(b.body||'').trim())return send(res,400,{error:'Напиши комментарий.'});const r=await q('INSERT INTO comments(user_id,review_id,parent_id,body) VALUES($1,$2,$3,$4) RETURNING id',[u.id,b.review_id,b.parent_id||null,String(b.body).slice(0,2000)]);return send(res,201,{id:r.rows[0].id});}
