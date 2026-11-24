@@ -148,7 +148,7 @@ async function loadAlbums() {
     card?.classList.remove("isEmpty");
     $("#featuredTitle").textContent = album.title;
     $("#featuredArtist").textContent = album.artist_name;
-    const score = album.average_rating == null ? "?" : (Number(album.average_rating) * 9).toFixed(1).replace(/\.0$/, "");
+    const score = album.average_rating == null ? "?" : Number(album.average_rating).toFixed(1).replace(/\.0$/, "");
     $("#featuredScore").textContent = `${score}/90`;
     const cover = $("#featuredCover");
     cover.style.setProperty("--cover-image", album.cover_url ? `url("${String(album.cover_url).replace(/["\\]/g, "\\$&")}")` : "none");
@@ -191,7 +191,7 @@ function navigatePage(event, page) {
 function albumCard(album) {
   const score = album.average_rating == null
     ? '—'
-    : `${(Number(album.average_rating) * 9).toFixed(1).replace(/\.0$/, '')}/90`;
+    : `${Number(album.average_rating).toFixed(1).replace(/\.0$/, '')}/90`;
   const cover = album.cover_url
     ? `<div class="catalogCover" style="background-image:url('${escapeAttr(album.cover_url)}')"></div>`
     : `<div class="catalogCover catalogPlaceholder">${escapeHtml(String(album.title || 'R').slice(0, 1).toUpperCase())}</div>`;
@@ -258,98 +258,25 @@ function goHome() {
   window.scrollTo(0, 0);
 }
 
+let romActiveAudio=null;
+function romTime(sec){if(!Number.isFinite(sec))return '0:00';const v=Math.floor(sec);return `${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`}
+function romPlay(btn){const row=btn.closest('.romPlayer'),audio=row.querySelector('audio');if(romActiveAudio&&romActiveAudio!==audio)romActiveAudio.pause();if(audio.paused){audio.play().catch(()=>toast('Не удалось воспроизвести аудио'));romActiveAudio=audio}else audio.pause()}
+function romAudioInit(){document.querySelectorAll('.romPlayer').forEach(row=>{const a=row.querySelector('audio'),b=row.querySelector('.romPlay'),seek=row.querySelector('.romSeek'),vol=row.querySelector('.romVolume'),clock=row.querySelector('.romClock');a.addEventListener('play',()=>b.textContent='❚❚');a.addEventListener('pause',()=>b.textContent='▶');a.addEventListener('ended',()=>b.textContent='▶');a.addEventListener('loadedmetadata',()=>clock.textContent=`0:00 / ${romTime(a.duration)}`);a.addEventListener('timeupdate',()=>{seek.value=a.duration?String(a.currentTime/a.duration*100):'0';clock.textContent=`${romTime(a.currentTime)} / ${romTime(a.duration)}`});seek.addEventListener('input',()=>{if(a.duration)a.currentTime=Number(seek.value)/100*a.duration});vol.addEventListener('input',()=>a.volume=Number(vol.value)/100)})}
+function romOpenRating(){const composer=document.querySelector('#ratingComposer');if(composer){composer.classList.toggle('hidden');if(!composer.classList.contains('hidden'))composer.querySelector('[name="rating"]').focus()}}
 async function openAlbum(id) {
-  try {
-    const data = await api(`/api/albums/${id}`);
-    const a = data.album;
-
-    $("#releaseContent").innerHTML = `
-      <div class="albumDetail">
-        <div class="detailCover ${a.cover_url ? "hasImage" : ""}"
-             ${a.cover_url ? `style="background-image:url('${escapeAttr(a.cover_url)}')"` : ""}>
-          ${a.cover_url ? "" : `<span>${escapeHtml(a.title.slice(0, 1))}</span>`}
-        </div>
-        <div>
-          <p class="eyebrow">${escapeHtml(a.artist_name)} · ${({single:"Сингл",multi_single:"Мульти-сингл",ep:"EP",album:"Альбом"})[a.release_type]||"Релиз"}</p>
-          <h2>${escapeHtml(a.title)}</h2>
-          <div class="bigRating">${a.average_rating ?? "—"}</div>
-          <p>${a.rating_count} оценок</p>
-          ${currentUser?.email_verified ? `
-            <form id="ratingForm" class="inlineForm">
-              <select name="rating">
-                ${Array.from({length: 21}, (_, i) => {
-                  const v = i / 2;
-                  return `<option value="${v}">${v.toFixed(1)}</option>`;
-                }).join("")}
-              </select>
-              <button class="button" type="submit">Оценить</button>
-            </form>
-          ` : currentUser ? `<button class="button secondary" onclick="showSettings()">Подтверди почту, чтобы оценивать</button>` : `<button class="button" onclick="openAuth()">Войдите, чтобы оценить</button>`}
-        </div>
-      </div>
-
-      <div class="trackList">
-        <h3>Треки</h3>
-        ${data.tracks.length ? data.tracks.map(t => `
-          <div class="track">
-            <span>${t.track_number}</span>
-            <div class="trackDetailName"><strong>${escapeHtml(t.title)}</strong>${t.featuring?`<small>feat. ${escapeHtml(t.featuring)}</small>`:""}</div>
-            ${t.audio_url?`<audio controls preload="none" src="${escapeAttr(t.audio_url)}"></audio>`:`<small>${formatDuration(t.duration_seconds)}</small>`}
-          </div>
-        `).join("") : `<div class="empty">Треклист пока не добавлен.</div>`}
-      </div>
-
-      <div class="reviews">
-        <div class="sectionHead compact">
-          <h3>Рецензии</h3>
-        </div>
-        ${currentUser?.email_verified ? `<form id="reviewForm" class="reviewComposer"><h4>Написать рецензию</h4><input name="title" placeholder="Заголовок" maxlength="150" required><textarea name="body" placeholder="Твои впечатления от релиза" rows="4" required></textarea><label>Оценка <select name="rating">${Array.from({length:21},(_,i)=>`<option value="${i/2}">${(i/2).toFixed(1)}</option>`).join('')}</select></label><button class="button" type="submit">Опубликовать рецензию</button></form>` : ''}
-        ${data.reviews.length ? data.reviews.map(r => `
-          <article class="review">
-            <div class="reviewTop">
-              <div>
-                <strong>@${escapeHtml(r.username)} ${r.is_artist?artistBadge():''}</strong>
-                <span>${escapeHtml(r.title)}</span>
-              </div>
-              <b>${Number(r.rating).toFixed(1)}</b>
-            </div>
-            <p>${escapeHtml(r.body)}</p>
-          </article>
-        `).join("") : `<div class="empty">Пока нет рецензий.</div>`}
-      </div>
-    `;
-
-    const reviewForm = $("#reviewForm");
-    if (reviewForm) reviewForm.addEventListener("submit",async e=>{e.preventDefault();try{await api('/api/reviews',{method:'POST',body:JSON.stringify({album_id:id,...Object.fromEntries(new FormData(reviewForm))})});toast('Рецензия опубликована');await openAlbum(id);}catch(err){toast(err.message)}});
-    const form = $("#ratingForm");
-    if (form) {
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const rating = Number(new FormData(form).get("rating"));
-        try {
-          await api("/api/ratings", {
-            method: "POST",
-            body: JSON.stringify({ album_id: id, rating })
-          });
-          toast("Оценка сохранена.");
-          await openAlbum(id);
-          await loadAlbums();
-        } catch (err) {
-          toast(err.message);
-        }
-      });
-    }
-
-    $("#homeView").classList.add("hidden");
-    $("#pageView").classList.add("hidden");
-    $("#releasePage").classList.remove("hidden");
-    setActiveNav('');
-    document.body.classList.add("releaseOpen");
-    history.pushState({ albumId: id }, "", `/#album-${id}`);
-    window.scrollTo(0, 0);
-  } catch (err) {
-    toast(err.message);
-  }
+ try {
+  const data=await api(`/api/albums/${id}`),a=data.album;
+  const average=a.average_rating==null?'—':Number(a.average_rating).toFixed(1).replace(/\.0$/,'');
+  const reviews=(data.reviews||[]).sort((x,y)=>Number(Boolean(y.body?.trim()))-Number(Boolean(x.body?.trim()))||new Date(y.created_at)-new Date(x.created_at));
+  $('#releaseContent').innerHTML=`
+  <div class="romReleaseHero"><div class="romReleaseCover">${a.cover_url?`<img src="${escapeAttr(a.cover_url)}" alt="Обложка ${escapeAttr(a.title)}">`:'<span>ROM</span>'}</div><div class="romReleaseMeta"><p class="eyebrow">${escapeHtml(a.artist_name)} · ${({single:'Сингл',multi_single:'Мульти-сингл',ep:'EP',album:'Альбом'})[a.release_type]||'Релиз'}</p><h1>${escapeHtml(a.title)}</h1><div class="romScoreLine"><strong>${average}<small>/90</small></strong><span>${Number(a.rating_count||0)} оценок</span></div>${currentUser?.email_verified?`<button class="button romRateButton" onclick="romOpenRating()">✎ Оценить релиз</button>`:currentUser?`<button class="button secondary" onclick="showSettings()">Подтверди почту для оценки</button>`:`<button class="button" onclick="openAuth()">Войти, чтобы оценить</button>`}</div></div>
+  ${currentUser?.email_verified?`<form id="ratingComposer" class="romComposer hidden"><div class="romComposerHeading"><div><span class="eyebrow">ТВОЯ ОЦЕНКА</span><h3>Оценить ${escapeHtml(a.title)}</h3></div><button type="button" class="romClose" onclick="romOpenRating()" aria-label="Закрыть">✕</button></div><label>Оценка от 1 до 90<input name="rating" type="number" min="1" max="90" step="1" inputmode="numeric" placeholder="Например, 75" required></label><label>Заголовок рецензии <span class="romOptional">необязательно</span><input name="title" maxlength="150" placeholder="Что думаешь о релизе?"></label><label>Текст рецензии <span class="romOptional">необязательно</span><textarea name="body" rows="5" maxlength="10000" placeholder="Поделись впечатлениями или оставь только оценку"></textarea></label><button class="button" type="submit">Опубликовать оценку</button></form>`:''}
+  <section class="romSection"><div class="romSectionTitle"><h2>Треклист</h2><span>${data.tracks.length} тр.</span></div><div class="romTrackList">${data.tracks.length?data.tracks.map(t=>`<div class="romTrack"><span class="romTrackIndex">${Number(t.track_number)}</span><div class="romTrackTitle"><strong>${escapeHtml(t.title)}</strong>${t.featuring?`<small>feat. ${escapeHtml(t.featuring)}</small>`:''}</div>${t.audio_url?`<div class="romPlayer"><audio preload="metadata" src="${escapeAttr(t.audio_url)}"></audio><button type="button" class="romPlay" onclick="romPlay(this)" aria-label="Воспроизвести">▶</button><span class="romClock">0:00 / 0:00</span><input class="romSeek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Перемотка"><span class="romVolumeIcon">♫</span><input class="romVolume" type="range" min="0" max="100" value="100" aria-label="Громкость"></div>`:`<span class="romTrackMissing">Аудио недоступно</span>`}</div>`).join(''):'<p class="empty">Треков пока нет.</p>'}</div></section>
+  <section class="romSection"><div class="romSectionTitle"><h2>Оценки и рецензии</h2><span>${reviews.length}</span></div><div class="romReviews">${reviews.length?reviews.map(r=>`<article class="romReview ${r.body?.trim()?'romTextReview':'romOnlyRating'}"><div class="romReviewUser"><div class="romReviewAvatar">${r.avatar_url?`<img src="${escapeAttr(r.avatar_url)}" alt="">`:escapeHtml(String(r.username||'?').slice(0,1).toUpperCase())}</div><div class="romReviewIdentity"><strong>@${escapeHtml(r.username)} ${r.is_artist?artistBadge():''}</strong><small>${new Date(r.created_at).toLocaleDateString('ru-RU')}</small></div><strong class="romReviewScore">${Number(r.rating).toFixed(0)}<small>/90</small></strong></div>${r.body?.trim()?`<div class="romReviewBody">${r.title?`<h3>${escapeHtml(r.title)}</h3>`:''}<p>${escapeHtml(r.body)}</p></div>`:''}</article>`).join(''):'<div class="romNoReviews">Пока никто не оценил этот релиз. Будь первым!</div>'}</div></section>`;
+  romAudioInit();
+  const composer=$('#ratingComposer');if(composer)composer.addEventListener('submit',async e=>{e.preventDefault();const btn=composer.querySelector('[type="submit"]');btn.disabled=true;try{const f=new FormData(composer);await api('/api/reviews',{method:'POST',body:JSON.stringify({album_id:id,rating:Number(f.get('rating')),title:String(f.get('title')||'').trim(),body:String(f.get('body')||'').trim()})});toast('Оценка опубликована!');await openAlbum(id);await loadAlbums()}catch(err){toast(err.message)}finally{btn.disabled=false}});
+  $('#homeView').classList.add('hidden');$('#pageView').classList.add('hidden');$('#releasePage').classList.remove('hidden');setActiveNav('');document.body.classList.add('releaseOpen');history.replaceState({albumId:id},'',`/#album-${id}`);window.scrollTo(0,0);
+ }catch(err){toast(err.message)}
 }
 
 function formatDuration(seconds) {
@@ -401,6 +328,12 @@ async function uploadRomFile(file,kind,button){
   return blob.url;
  }finally{if(button)button.textContent=original;}
 }
+function setReleaseToday(button){
+ const input=button.closest('.releaseDateRow')?.querySelector('input[type="date"]');
+ if(!input)return;
+ const now=new Date();const local=new Date(now.getTime()-now.getTimezoneOffset()*60000);
+ input.value=local.toISOString().slice(0,10);input.dispatchEvent(new Event('change',{bubbles:true}));
+}
 function coverFilePreview(input,target){const f=input.files?.[0],img=document.querySelector(target);if(!img)return;if(!f){img.classList.add('hidden');return}if(f.size>4*1024*1024){toast('Обложка должна быть до 4 МБ');input.value='';return}img.src=URL.createObjectURL(f);img.classList.remove('hidden')}
 const AUDIO_ACCEPT='.mp3,.flac,.wav,audio/mpeg,audio/flac,audio/wav,audio/x-wav';
 function releaseFormHtml(submission=false){return `<label>Исполнитель<input name="artist_name" maxlength="120" required placeholder="Имя исполнителя" value="${submission?escapeAttr(currentUser.username):''}"></label><label>Featuring (необязательно)<input name="featuring" maxlength="250" placeholder="Например: Artist A, Artist B"></label><label>Название ${submission?'трека':'релиза'}<input name="title" maxlength="${submission?150:200}" required placeholder="Название"></label><label>Обложка · PNG/JPG до 4 МБ<input type="file" name="cover_file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" onchange="coverFilePreview(this,'#uploadCoverPreview')"></label>${submission?`<label>Аудио · MP3/FLAC/WAV до 40 МБ<input type="file" name="audio_file" accept="${AUDIO_ACCEPT}" required></label>`:''}`}
@@ -427,7 +360,7 @@ async function submitRomUpload(e,endpoint){e.preventDefault();const form=e.curre
 }
 async function showAddRelease(){
  if(!currentUser?.is_verified&&!currentUser?.is_admin)return toast('Нужна галочка подтверждённого автора');
- accountPage('Добавить релиз',`<p class="studioLead">Заполни данные релиза и добавь треки, как в кабинете музыкального дистрибьютора.</p><div class="studioGrid"><form id="addReleaseForm" class="settingsCard form studioForm">${releaseFormHtml(false)}<label>Тип релиза<select name="release_type" onchange="changeReleaseType()"><option value="single">Сингл</option><option value="ep">EP</option><option value="album">Альбом</option></select></label><div class="releaseTypeInfo"><span id="releaseTypeEffective">Сингл</span><p id="releaseTypeHint"></p></div><label>Дата релиза<input name="release_date" type="date"></label><label>Описание<textarea name="description" rows="4" maxlength="5000"></textarea></label><div class="releaseTracksTitle"><h3>Треклист</h3><span>До 40 МБ на трек</span></div><div id="releaseTracks">${releaseTrackRow(1)}</div><button class="addTrackButton" id="addTrackButton" type="button" onclick="addReleaseTrack()">＋ Добавить трек</button><button class="button" type="submit">Опубликовать</button></form><div class="previewPanel"><p class="eyebrow">ПРЕДПРОСМОТР ОБЛОЖКИ</p><img id="uploadCoverPreview" class="previewImage hidden" alt="Обложка"><div class="previewPlaceholder">♫</div><p class="mutedSmall">PNG/JPG · до 4 МБ. Аудио MP3/FLAC/WAV · до 40 МБ на трек.</p></div></div>`);
+ accountPage('Добавить релиз',`<p class="studioLead">Заполни данные релиза и добавь треки, как в кабинете музыкального дистрибьютора.</p><div class="studioGrid"><form id="addReleaseForm" class="settingsCard form studioForm">${releaseFormHtml(false)}<label>Тип релиза<select name="release_type" onchange="changeReleaseType()"><option value="single">Сингл</option><option value="ep">EP</option><option value="album">Альбом</option></select></label><div class="releaseTypeInfo"><span id="releaseTypeEffective">Сингл</span><p id="releaseTypeHint"></p></div><label>Дата релиза<div class="releaseDateRow"><input name="release_date" type="date"><button type="button" class="todayButton" onclick="setReleaseToday(this)">Сегодня</button></div></label><label>Описание<textarea name="description" rows="4" maxlength="5000"></textarea></label><div class="releaseTracksTitle"><h3>Треклист</h3><span>До 40 МБ на трек</span></div><div id="releaseTracks">${releaseTrackRow(1)}</div><button class="addTrackButton" id="addTrackButton" type="button" onclick="addReleaseTrack()">＋ Добавить трек</button><button class="button" type="submit">Опубликовать</button></form><div class="previewPanel"><p class="eyebrow">ПРЕДПРОСМОТР ОБЛОЖКИ</p><img id="uploadCoverPreview" class="previewImage hidden" alt="Обложка"><div class="previewPlaceholder">♫</div><p class="mutedSmall">PNG/JPG · до 4 МБ. Аудио MP3/FLAC/WAV · до 40 МБ на трек.</p></div></div>`);
  updateReleaseTracks();$('#addReleaseForm').addEventListener('submit',e=>submitRomUpload(e,'/api/albums'));
 }
 
