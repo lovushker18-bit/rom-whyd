@@ -4,41 +4,44 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="ROM — Rate Our Music. Оценивай релизы и открывай новую музыку.">
-  <meta name="theme-color" content="#0b0b0d">
+  <meta name="theme-color" content="#090a09">
   <title>ROM — Rate Our Music</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div id="homeView" class="homeView">
-    <header class="topbar">
-      <a class="logo" href="/" onclick="goHome(); return false;">ROM</a>
-      <nav aria-label="Основная навигация">
-        <a href="#best-releases" onclick="showComingSoon(event)">Лучшие релизы</a>
-        <a href="#new-releases" onclick="showComingSoon(event)">Новые релизы</a>
-        <a href="#news" onclick="showComingSoon(event)">Новости</a>
-        <a href="#about-rom" onclick="showComingSoon(event)">О ROM</a>
-      </nav>
-      <div id="authArea" class="authArea">
-        <button class="ghost" onclick="openAuth()">Войти</button>
-        <button class="button authRegister" onclick="openAuth(true)">Создать аккаунт</button>
-      </div>
-    </header>
+  <header class="topbar">
+    <a class="logo" href="/" onclick="goHome(); return false;">ROM</a>
+    <nav aria-label="Основная навигация">
+      <a href="#best" data-page="best" onclick="navigatePage(event, 'best')">Лучшие релизы</a>
+      <a href="#new" data-page="new" onclick="navigatePage(event, 'new')">Новые релизы</a>
+      <a href="#news" data-page="news" onclick="navigatePage(event, 'news')">Новости</a>
+      <a href="#about" data-page="about" onclick="navigatePage(event, 'about')">О ROM</a>
+    </nav>
+    <div id="authArea" class="authArea">
+      <button class="ghost" onclick="openAuth()">Войти</button>
+      <button class="button authRegister" onclick="openAuth(true)">Создать аккаунт</button>
+    </div>
+  </header>
 
-    <main class="hero">
+  <main id="homeView" class="homeView">
+    <section class="hero">
       <div class="heroCopy">
         <p class="eyebrow">COMMUNITY MUSIC DATABASE</p>
         <h1><span class="initial">R</span>ate <span class="initial">O</span>ur<br><span class="initial">M</span>usic<span class="heroDot">.</span></h1>
-        <p class="heroText">Платформа для оценок, рецензий и обсуждения музыки. Открывай новые релизы и делись своим мнением.</p>
+        <p class="heroText">Место, где музыка получает свою оценку. Изучай альбомы, сравнивай мнения и открывай релизы, которые захочется переслушивать.</p>
         <div class="heroActions">
           <button class="button" id="listenLatest" onclick="listenLatestRelease()">Слушать релиз <span aria-hidden="true">↗</span></button>
           <button class="button secondary" id="heroRegister" onclick="openAuth(true)">Создать аккаунт</button>
         </div>
       </div>
 
-      <article class="heroCard" id="featuredRelease" aria-label="Последний релиз">
+      <article class="heroCard" id="featuredRelease" aria-label="Последний релиз" tabindex="0" role="button" onclick="listenLatestRelease()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();listenLatestRelease()}">
         <div class="featuredCover fakeCover" id="featuredCover"><span class="coverPlaceholder">ROM</span></div>
         <div class="featuredInfo">
-          <p class="featuredLabel">Последний релиз</p>
+          <p class="featuredLabel">Последний релиз <span class="liveDot"></span></p>
           <div class="featuredMeta">
             <div class="featuredNames">
               <h2 id="featuredTitle">Загрузка релиза…</h2>
@@ -51,14 +54,13 @@
           </div>
         </div>
       </article>
-    </main>
-  </div>
+    </section>
+  </main>
+
+  <main id="pageView" class="pageView hidden"></main>
 
   <main id="releasePage" class="releasePage hidden">
-    <header class="releaseTopbar">
-      <a class="logo" href="/" onclick="goHome(); return false;">ROM</a>
-      <button class="ghost" onclick="goHome()">← На главную</button>
-    </header>
+    <div class="releaseTopbar"><span class="releaseKicker">RELEASE DETAILS</span><button class="ghost" onclick="goHome()">← На главную</button></div>
     <div id="releaseContent"></div>
   </main>
 

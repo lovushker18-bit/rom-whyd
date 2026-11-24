@@ -145,9 +145,14 @@ async function loadAlbums() {
     const score = album.average_rating == null ? "?" : (Number(album.average_rating) * 9).toFixed(1).replace(/\.0$/, "");
     $("#featuredScore").textContent = `${score}/90`;
     const cover = $("#featuredCover");
-    cover.style.backgroundImage = album.cover_url
-      ? `url("${String(album.cover_url).replace(/["\\]/g, "\\$&")}")`
-      : "";
+    cover.style.setProperty("--cover-image", album.cover_url ? `url("${String(album.cover_url).replace(/["\\]/g, "\\$&")}")` : "none");
+    cover.classList.remove("coverLoaded");
+    if (album.cover_url) {
+      const preload = new Image();
+      preload.onload = () => cover.classList.add("coverLoaded");
+      preload.onerror = () => cover.classList.remove("coverLoaded");
+      preload.src = album.cover_url;
+    }
     const placeholder = cover.querySelector(".coverPlaceholder");
     if (placeholder) placeholder.textContent = album.cover_url ? "" : "ROM";
   } catch (err) {
@@ -165,16 +170,85 @@ function listenLatestRelease() {
   openAlbum(latestAlbumId);
 }
 
-function showComingSoon(event) {
+function setActiveNav(page) {
+  document.querySelectorAll('nav a[data-page]').forEach(link => {
+    link.classList.toggle('active', link.dataset.page === page);
+  });
+}
+
+function navigatePage(event, page) {
   event.preventDefault();
-  toast("Этот раздел скоро появится.");
+  renderPage(page);
+  history.pushState({ page }, '', `/#${page}`);
+}
+
+function albumCard(album) {
+  const score = album.average_rating == null
+    ? '—'
+    : `${(Number(album.average_rating) * 9).toFixed(1).replace(/\.0$/, '')}/90`;
+  const cover = album.cover_url
+    ? `<div class="catalogCover" style="background-image:url('${escapeAttr(album.cover_url)}')"></div>`
+    : `<div class="catalogCover catalogPlaceholder">${escapeHtml(String(album.title || 'R').slice(0, 1).toUpperCase())}</div>`;
+  return `<article class="catalogCard" role="button" tabindex="0" onclick="openAlbum(${Number(album.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAlbum(${Number(album.id)})}">
+    ${cover}<div class="catalogInfo"><h3>${escapeHtml(album.title)}</h3><p>${escapeHtml(album.artist_name)}</p><div class="catalogScore"><strong>${score}</strong><span>${Number(album.rating_count || 0)} оценок</span></div></div>
+  </article>`;
+}
+
+async function renderPage(page) {
+  $('#homeView').classList.add('hidden');
+  $('#releasePage').classList.add('hidden');
+  $('#pageView').classList.remove('hidden');
+  document.body.classList.remove('releaseOpen');
+  setActiveNav(page);
+  window.scrollTo(0, 0);
+
+  const pages = {
+    best: { eyebrow: 'COMMUNITY RANKING', title: 'Лучшие релизы', intro: 'Альбомы, которые получили самые высокие оценки сообщества.' },
+    new: { eyebrow: 'FRESH DROPS', title: 'Новые релизы', intro: 'Последние альбомы, добавленные в каталог ROM.' },
+    news: { eyebrow: 'ROM JOURNAL', title: 'Новости', intro: 'Обновления платформы и важные события музыкального сообщества.' },
+    about: { eyebrow: 'ABOUT THE PROJECT', title: 'Музыка — это мнение.', intro: 'ROM (Rate Our Music) — независимая площадка, где слушатели оценивают альбомы, пишут рецензии и формируют общую музыкальную картину.' }
+  };
+  const meta = pages[page] || pages.new;
+  const root = $('#pageView');
+  root.innerHTML = `<section class="pageIntro"><p class="eyebrow">${meta.eyebrow}</p><h1>${meta.title}</h1><p>${meta.intro}</p></section><section id="pageBody" class="pageBody"><div class="empty">Загружаем…</div></section>`;
+
+  if (page === 'about') {
+    $('#pageBody').innerHTML = `<div class="aboutGrid">
+      <article class="aboutTile"><span>01 / DISCOVER</span><h2>Открывай новое</h2><p>Находи альбомы и артистов за пределами привычного плейлиста.</p></article>
+      <article class="aboutTile"><span>02 / RATE</span><h2>Оценивай честно</h2><p>Ставь оценки и помогай формировать рейтинг релизов.</p></article>
+      <article class="aboutTile"><span>03 / DISCUSS</span><h2>Обсуждай музыку</h2><p>Публикуй рецензии и знакомься с мнениями других слушателей.</p></article>
+    </div><div class="aboutNote"><span class="aboutMark">ROM.</span><p>Наша идея проста: у каждого альбома есть своя история, а у каждого слушателя — собственное мнение. ROM собирает их в одном месте.</p></div>`;
+    return;
+  }
+
+  if (page === 'news') {
+    $('#pageBody').innerHTML = `<div class="emptyState"><span class="emptyIcon">✳</span><h2>Пока без новостей</h2><p>Здесь будут появляться обновления ROM, анонсы и заметки о музыкальном сообществе.</p></div>`;
+    return;
+  }
+
+  try {
+    const data = await api('/api/albums');
+    let albums = [...(data.albums || [])];
+    if (page === 'best') {
+      albums.sort((a, b) => (Number(b.average_rating ?? -1) - Number(a.average_rating ?? -1)) || Number(b.rating_count || 0) - Number(a.rating_count || 0));
+    }
+    if (!albums.length) {
+      $('#pageBody').innerHTML = `<div class="emptyState"><span class="emptyIcon">♫</span><h2>Каталог пока пуст</h2><p>Когда в ROM появятся релизы, они будут отображаться здесь.</p></div>`;
+      return;
+    }
+    $('#pageBody').innerHTML = `<div class="catalogToolbar"><span>${albums.length} ${albums.length === 1 ? 'релиз' : 'релизов'}</span><span>${page === 'best' ? 'Сортировка: по оценке' : 'Сначала новые'}</span></div><div class="catalogGrid">${albums.map(albumCard).join('')}</div>`;
+  } catch (err) {
+    $('#pageBody').innerHTML = `<div class="emptyState"><h2>Не удалось загрузить каталог</h2><p>${escapeHtml(err.message)}</p></div>`;
+  }
 }
 
 function goHome() {
-  $("#releasePage").classList.add("hidden");
-  $("#homeView").classList.remove("hidden");
-  document.body.classList.remove("releaseOpen");
-  history.replaceState(null, "", "/");
+  $('#releasePage').classList.add('hidden');
+  $('#pageView').classList.add('hidden');
+  $('#homeView').classList.remove('hidden');
+  document.body.classList.remove('releaseOpen');
+  setActiveNav('');
+  history.replaceState({}, '', '/');
   window.scrollTo(0, 0);
 }
 
@@ -258,7 +332,9 @@ async function openAlbum(id) {
     }
 
     $("#homeView").classList.add("hidden");
+    $("#pageView").classList.add("hidden");
     $("#releasePage").classList.remove("hidden");
+    setActiveNav('');
     document.body.classList.add("releaseOpen");
     history.pushState({ albumId: id }, "", `/#album-${id}`);
     window.scrollTo(0, 0);
@@ -288,12 +364,16 @@ window.addEventListener("popstate", () => {
   if (location.hash.startsWith("#album-")) {
     const id = Number(location.hash.slice(7));
     if (id) openAlbum(id);
+  } else if (['best', 'new', 'news', 'about'].includes(location.hash.slice(1))) {
+    renderPage(location.hash.slice(1));
   } else {
-    goHome();
+    $('#releasePage').classList.add('hidden');
+    $('#pageView').classList.add('hidden');
+    $('#homeView').classList.remove('hidden');
+    document.body.classList.remove('releaseOpen');
+    setActiveNav('');
   }
 });
-
-$("#featuredRelease")?.addEventListener("click", listenLatestRelease);
 
 (async function init() {
   await loadMe();
