@@ -11,7 +11,7 @@ const sha=s=>createHash('sha256').update(s).digest('hex');
 const cookie=(value,age)=>`rom_session=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${age}`;
 function cookies(req){return Object.fromEntries((req.headers.cookie||'').split(';').map(s=>s.trim().split('=').slice(0,2)).filter(x=>x.length===2));}
 const send=(res,status,data)=>res.status(status).json(data);
-const safe=u=>u&&({id:u.id,username:u.username,email:u.email,bio:u.bio,avatar_url:u.avatar_url,email_verified:u.email_verified,is_verified:u.is_verified,is_admin:u.is_admin});
+const safe=u=>u&&({id:u.id,username:u.username,email:u.email,bio:u.bio,avatar_url:u.avatar_url,email_verified:u.email_verified,is_verified:u.is_verified,is_admin:u.is_admin,is_artist:u.is_artist});
 async function me(req){const t=cookies(req).rom_session;if(!t)return null;const r=await q(`SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=$1 AND s.expires_at>NOW()`,[sha(t)]);return r.rows[0]||null;}
 async function session(res,user){const t=token();await q(`INSERT INTO sessions(id,user_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '30 days')`,[sha(t),user.id]);res.setHeader('Set-Cookie',cookie(t,2592000));}
 async function sendVerification(user){
@@ -43,10 +43,39 @@ if(path==='/api/login'&&method==='POST'){const email=String(b.email||b.login||''
 if(path==='/api/logout'&&method==='POST'){const t=cookies(req).rom_session;if(t)await q('DELETE FROM sessions WHERE id=$1',[sha(t)]);res.setHeader('Set-Cookie',cookie('',0));return send(res,200,{ok:true});}
 if(path==='/api/resend-verification'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(u.email_verified)return send(res,400,{error:'Почта уже подтверждена.'});const last=await q(`SELECT 1 FROM email_tokens WHERE user_id=$1 AND expires_at>NOW()+INTERVAL '9 minutes'`,[u.id]);if(last.rowCount)return send(res,429,{error:'Код уже отправлен. Подожди минуту и попробуй снова.'});try{await sendVerification(u);return send(res,200,{ok:true});}catch(err){console.error('Gmail verification error:',err.message);return send(res,502,{error:'Не удалось отправить письмо. Проверь настройки Gmail в Vercel и логи сервера.'});}}
 if(path==='/api/profile'&&method==='PATCH'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});const bio=String(b.bio||'').trim(),avatar=String(b.avatar_url||'').trim();if(bio.length>500||avatar.length>500||avatar&&!/^https:\/\//.test(avatar))return send(res,400,{error:'Описание до 500 символов; аватар — HTTPS-ссылка.'});const r=await q('UPDATE users SET bio=$1,avatar_url=$2 WHERE id=$3 RETURNING *',[bio,avatar,u.id]);return send(res,200,{user:safe(r.rows[0])});}
-const profile=path.match(/^\/api\/users\/([^/]+)$/);if(profile&&method==='GET'){const r=await q('SELECT id,username,bio,avatar_url,email_verified,is_verified,created_at FROM users WHERE LOWER(username)=LOWER($1)',[decodeURIComponent(profile[1])]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Профиль не найден.'});}
+const profile=path.match(/^\/api\/users\/([^/]+)$/);if(profile&&method==='GET'){const r=await q('SELECT id,username,bio,avatar_url,email_verified,is_verified,is_artist,created_at FROM users WHERE LOWER(username)=LOWER($1)',[decodeURIComponent(profile[1])]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Профиль не найден.'});}
+if(path==='/api/submissions'&&method==='POST'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ if(!u.email_verified)return send(res,403,{error:'Сначала подтверди почту.'});
+ if(!u.is_artist)return send(res,403,{error:'Отправлять треки могут только артисты с зелёной ноткой.'});
+ const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),audio=String(b.audio_url||'').trim(),cover=String(b.cover_url||'').trim(),description=String(b.description||'').trim();
+ if(!title||title.length>150||!artist||artist.length>120||description.length>2000||!/^https:\/\/[^\s]+$/i.test(audio)||audio.length>1500||cover&&(!/^https:\/\/[^\s]+$/i.test(cover)||cover.length>1500))return send(res,400,{error:'Укажи исполнителя, название и HTTPS-ссылку на трек. Проверь длину полей.'});
+ const count=await q(`SELECT COUNT(*)::int n FROM track_submissions WHERE user_id=$1 AND created_at>NOW()-INTERVAL '1 day'`,[u.id]);if(count.rows[0].n>=10)return send(res,429,{error:'Не больше 10 заявок в сутки.'});
+ const r=await q('INSERT INTO track_submissions(user_id,title,artist_name,audio_url,cover_url,description) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[u.id,title,artist,audio,cover,description]);return send(res,201,{id:r.rows[0].id,status:'pending'});
+}
+if(path==='/api/submissions'&&method==='GET'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ const r=await q(`SELECT s.*,u.username FROM track_submissions s JOIN users u ON u.id=s.user_id WHERE ${u.is_admin?'TRUE':'s.user_id=$1'} ORDER BY s.created_at DESC LIMIT 100`,u.is_admin?[]:[u.id]);return send(res,200,{submissions:r.rows});
+}
+const submission=path.match(/^\/api\/submissions\/(\d+)$/);
+if(submission&&method==='PATCH'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ if(!['approved','rejected','pending'].includes(b.status))return send(res,400,{error:'Некорректный статус.'});
+ const r=await q('UPDATE track_submissions SET status=$1,reviewed_at=NOW(),reviewed_by=$2 WHERE id=$3 RETURNING id,status',[b.status,u.id,submission[1]]);return r.rowCount?send(res,200,r.rows[0]):send(res,404,{error:'Заявка не найдена.'});
+}
+if(path==='/api/admin/users'&&method==='GET'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const r=await q('SELECT id,username,email,email_verified,is_artist,is_admin,created_at FROM users ORDER BY created_at DESC LIMIT 100');return send(res,200,{users:r.rows});
+}
+const adminUser=path.match(/^\/api\/admin\/users\/(\d+)\/artist$/);
+if(adminUser&&method==='PATCH'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ if(typeof b.is_artist!=='boolean')return send(res,400,{error:'Укажи is_artist.'});
+ const r=await q('UPDATE users SET is_artist=$1 WHERE id=$2 RETURNING id,username,is_artist',[b.is_artist,adminUser[1]]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Пользователь не найден.'});
+}
 if(path==='/api/artists'&&method==='GET'){const r=await q('SELECT * FROM artists ORDER BY name');return send(res,200,{artists:r.rows});}
 if(path==='/api/albums'&&method==='GET'){const r=await q(`${albumsSql} GROUP BY a.id,ar.name ORDER BY a.created_at DESC LIMIT 300`);return send(res,200,{albums:r.rows});}
-const album=path.match(/^\/api\/albums\/(\d+)$/);if(album&&method==='GET'){const r=await q(`${albumsSql} WHERE a.id=$1 GROUP BY a.id,ar.name`,[album[1]]);if(!r.rowCount)return send(res,404,{error:'Релиз не найден.'});const tracks=await q('SELECT * FROM tracks WHERE album_id=$1 ORDER BY track_number',[album[1]]);const reviews=await q('SELECT r.*,u.username FROM reviews r JOIN users u ON u.id=r.user_id WHERE album_id=$1 ORDER BY r.created_at DESC',[album[1]]);return send(res,200,{album:r.rows[0],tracks:tracks.rows,reviews:reviews.rows});}
+const album=path.match(/^\/api\/albums\/(\d+)$/);if(album&&method==='GET'){const r=await q(`${albumsSql} WHERE a.id=$1 GROUP BY a.id,ar.name`,[album[1]]);if(!r.rowCount)return send(res,404,{error:'Релиз не найден.'});const tracks=await q('SELECT * FROM tracks WHERE album_id=$1 ORDER BY track_number',[album[1]]);const reviews=await q('SELECT r.*,u.username,u.is_artist FROM reviews r JOIN users u ON u.id=r.user_id WHERE album_id=$1 ORDER BY r.created_at DESC',[album[1]]);return send(res,200,{album:r.rows[0],tracks:tracks.rows,reviews:reviews.rows});}
 if(path==='/api/albums'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.is_verified&&!u.is_admin)return send(res,403,{error:'Добавлять релизы могут только пользователи с галочкой.'});if(!b.title||!b.artist_id)return send(res,400,{error:'Укажи название и исполнителя.'});const r=await q('INSERT INTO albums(artist_id,title,cover_url,release_date,description) VALUES($1,$2,$3,$4,$5) RETURNING id',[b.artist_id,String(b.title).slice(0,200),String(b.cover_url||''),String(b.release_date||''),String(b.description||'')]);return send(res,201,{id:r.rows[0].id});}
 if(path==='/api/ratings'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.email_verified)return send(res,403,{error:'Подтверди почту, чтобы ставить оценки.'});if(!validRating(b.rating)||!Number.isInteger(Number(b.album_id)))return send(res,400,{error:'Оценка от 0 до 10 с шагом 0.5.'});await q('INSERT INTO ratings(user_id,album_id,rating) VALUES($1,$2,$3) ON CONFLICT(user_id,album_id) DO UPDATE SET rating=EXCLUDED.rating,updated_at=NOW()',[u.id,b.album_id,b.rating]);return send(res,200,{ok:true});}
 if(path==='/api/reviews'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.email_verified)return send(res,403,{error:'Подтверди почту, чтобы писать рецензии.'});if(!validRating(b.rating)||!b.album_id||!String(b.title||'').trim()||!String(b.body||'').trim())return send(res,400,{error:'Заполни оценку, заголовок и текст.'});const r=await q('INSERT INTO reviews(user_id,album_id,rating,title,body) VALUES($1,$2,$3,$4,$5) RETURNING id',[u.id,b.album_id,b.rating,String(b.title).slice(0,150),String(b.body).slice(0,10000)]);return send(res,201,{id:r.rows[0].id});}
