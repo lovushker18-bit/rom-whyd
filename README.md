@@ -1,65 +1,44 @@
-# Music Rating Site
+# ROM — Vercel + Neon PostgreSQL
 
-AOTY-inspired music rating/review website built for Cloudflare Workers + D1.
+Проект перенесён с Cloudflare Worker/D1 на **Vercel Serverless Functions + Neon PostgreSQL**. Cloudflare больше не нужен. Исходная база D1 **не переносится автоматически**: новая база будет пустой, пока вы не импортируете данные.
 
-## Current MVP
+## 1. Создайте базу Neon
+1. На neon.tech создайте бесплатный PostgreSQL-проект (или добавьте Neon через Vercel Marketplace).
+2. В Neon SQL Editor один раз выполните **весь** файл `db/postgres.sql`.
+3. Скопируйте строку подключения PostgreSQL в `DATABASE_URL`.
 
-- User registration
-- Login / logout
-- Session cookies
-- User profiles
-- Artists
-- Albums
-- Tracks
-- 0–10 ratings in 0.5 increments
-- Album average ratings
-- Reviews
-- Comments
-- Basic responsive UI
-- Cloudflare D1 database
+## 2. Настройте Vercel
+Импортируйте репозиторий как Vercel Project. Framework Preset: **Other**. Root Directory: корень проекта (папка, в которой лежат `package.json`, `api/`, `public/`). Build Command: пусто (Override выключен). Output Directory: пусто (Override выключен). Vercel установит зависимости из `package.json`.
 
-## Local setup
+В Vercel → Project → Settings → Environment Variables установите:
 
-Requirements:
-- Node.js 20+
-- Wrangler
+- `DATABASE_URL` — строка подключения Neon PostgreSQL (секрет).
+- `RESEND_API_KEY` — API-ключ Resend (секрет).
+- `EMAIL_FROM` — проверенный отправитель Resend, например `ROM <verify@yourdomain.com>`.
+- `PUBLIC_URL` — публичный HTTPS-адрес проекта, например `https://rom-whyd.vercel.app` (без конечного `/`).
 
-Install:
-```bash
-npm install
+Затем Redeploy. **Не публикуйте значения секретов в GitHub.**
+
+## 3. Подтверждение почты
+В resend.com подтвердите собственный домен отправителя. Без настройки Resend регистрация выдаёт понятную ошибку; с настроенным сервисом отправляется письмо с одноразовой ссылкой на 24 часа. Если доставка письма при регистрации не удалась, повторную отправку можно запросить в «Настройки» (ограничение: не чаще раза в час). Только после подтверждения разрешены оценки, рецензии и комментарии.
+
+## 4. Пользователи с галочкой
+Галочка автора **не равна** подтверждению email. Чтобы вручную выдать галочку, выполните в Neon SQL Editor:
+
+```sql
+UPDATE users SET is_verified = TRUE WHERE email = 'your-email@example.com';
 ```
 
-Create a local D1 database:
-```bash
-npx wrangler d1 create music-rating-db
+Для административного флага: `UPDATE users SET is_admin = TRUE WHERE email = 'your-email@example.com';`. Административной панели выдачи галочек в этой версии нет. Создание релиза проверяет галочку на сервере. Для добавления релиза через интерфейс сначала добавьте исполнителя в таблицу `artists` (через Neon SQL Editor):
+
+```sql
+INSERT INTO artists(name) VALUES ('Название исполнителя');
 ```
 
-Put the returned database ID into `wrangler.jsonc`.
+## 5. Проверка
+- Откройте сайт, создайте аккаунт с ником, email и паролем.
+- Войдите, нажмите на круглый аватар справа → «Аккаунт», «Настройки», «Выйти».
+- Проверьте письмо, перейдите по ссылке и обновите сайт.
+- Попробуйте оценить альбом и написать рецензию.
 
-Apply schema locally:
-```bash
-npm run db:migrate:local
-```
-
-Start development:
-```bash
-npm run dev
-```
-
-## Cloudflare deployment
-
-After connecting the GitHub repository to Cloudflare Workers, set the D1 database binding named `DB` to your production D1 database.
-
-Apply the schema to production:
-```bash
-npm run db:migrate
-```
-
-Deploy:
-```bash
-npm run deploy
-```
-
-## Notes
-
-This is a functional starting point, not a finished production service. Before public launch, add email verification, password reset, rate limiting, CSRF protection, stronger moderation tools, abuse prevention, and production-grade session management.
+**Примечания:** существующие аккаунты Cloudflare D1 не импортированы. Пароли новых аккаунтов хешируются bcrypt. Сессии хранятся в PostgreSQL, cookie HttpOnly/Secure. Для полноценного публичного запуска рекомендуется добавить rate limiting, CAPTCHA, сброс пароля и защиту от спама.

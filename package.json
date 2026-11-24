@@ -1,15 +1,13 @@
 {
-  "name": "music-rating-site",
+  "name": "rom-vercel",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "db:migrate:local": "wrangler d1 execute music-rating-db --local --file=./db/schema.sql",
-    "db:migrate": "wrangler d1 execute music-rating-db --remote --file=./db/schema.sql"
+    "dev": "vercel dev"
   },
-  "devDependencies": {
-    "wrangler": "^4.0.0"
+  "dependencies": {
+    "pg": "^8.13.1",
+    "bcryptjs": "^2.4.3"
   }
 }

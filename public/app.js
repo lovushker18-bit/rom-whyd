@@ -34,7 +34,7 @@ function renderAuth() {
     <p class="eyebrow">ACCOUNT</p>
     <h2>Войти</h2>
     <form id="loginForm" class="form">
-      <label>Username или email<input name="login" required></label>
+      <label>Электронная почта<input name="email" type="email" required></label>
       <label>Пароль<input name="password" type="password" required></label>
       <button class="button" type="submit">Войти</button>
     </form>
@@ -63,8 +63,8 @@ function renderRegister() {
     <p class="eyebrow">ACCOUNT</p>
     <h2>Создать аккаунт</h2>
     <form id="registerForm" class="form">
-      <label>Username<input name="username" minlength="3" maxlength="24" required></label>
-      <label>Email<input name="email" type="email" required></label>
+      <label>Ник<input name="username" minlength="3" maxlength="24" required></label>
+      <label>Почта<input name="email" type="email" required></label>
       <label>Пароль<input name="password" type="password" minlength="8" required></label>
       <button class="button" type="submit">Зарегистрироваться</button>
     </form>
@@ -81,7 +81,7 @@ function renderRegister() {
       });
       await loadMe();
       closeAuth();
-      toast("Аккаунт создан.");
+      toast("Аккаунт создан! Проверь почту для подтверждения.");
     } catch (err) {
       toast(err.message);
     }
@@ -107,10 +107,16 @@ function renderAuthArea() {
     return;
   }
 
-  area.innerHTML = `
-    <span class="userBadge">@${escapeHtml(currentUser.username)}</span>
-    <button class="ghost" onclick="logout()">Выйти</button>
-  `;
+  const avatar = currentUser.avatar_url ? `<img src="${escapeAttr(currentUser.avatar_url)}" alt="">` : escapeHtml(currentUser.username.slice(0,1).toUpperCase());
+  area.innerHTML = `<div class="profileMenuWrap">
+    <button class="avatarButton" onclick="toggleProfileMenu(event)" aria-label="Меню профиля">${avatar}</button>
+    <div id="profileMenu" class="profileDropdown hidden">
+      <div class="menuUsername">@${escapeHtml(currentUser.username)} ${currentUser.is_verified?'✓':''}</div>
+      <button onclick="showProfile();closeProfileMenu()">Аккаунт</button>
+      <button onclick="showSettings();closeProfileMenu()">Настройки</button>
+      <button onclick="logout();closeProfileMenu()">Выйти</button>
+    </div>
+  </div>`;
 }
 
 async function logout() {
@@ -268,7 +274,7 @@ async function openAlbum(id) {
           <h2>${escapeHtml(a.title)}</h2>
           <div class="bigRating">${a.average_rating ?? "—"}</div>
           <p>${a.rating_count} оценок</p>
-          ${currentUser ? `
+          ${currentUser?.email_verified ? `
             <form id="ratingForm" class="inlineForm">
               <select name="rating">
                 ${Array.from({length: 21}, (_, i) => {
@@ -278,7 +284,7 @@ async function openAlbum(id) {
               </select>
               <button class="button" type="submit">Оценить</button>
             </form>
-          ` : `<button class="button" onclick="openAuth()">Войдите, чтобы оценить</button>`}
+          ` : currentUser ? `<button class="button secondary" onclick="showSettings()">Подтверди почту, чтобы оценивать</button>` : `<button class="button" onclick="openAuth()">Войдите, чтобы оценить</button>`}
         </div>
       </div>
 
@@ -297,6 +303,7 @@ async function openAlbum(id) {
         <div class="sectionHead compact">
           <h3>Рецензии</h3>
         </div>
+        ${currentUser?.email_verified ? `<form id="reviewForm" class="reviewComposer"><h4>Написать рецензию</h4><input name="title" placeholder="Заголовок" maxlength="150" required><textarea name="body" placeholder="Твои впечатления от релиза" rows="4" required></textarea><label>Оценка <select name="rating">${Array.from({length:21},(_,i)=>`<option value="${i/2}">${(i/2).toFixed(1)}</option>`).join('')}</select></label><button class="button" type="submit">Опубликовать рецензию</button></form>` : ''}
         ${data.reviews.length ? data.reviews.map(r => `
           <article class="review">
             <div class="reviewTop">
@@ -312,6 +319,8 @@ async function openAlbum(id) {
       </div>
     `;
 
+    const reviewForm = $("#reviewForm");
+    if (reviewForm) reviewForm.addEventListener("submit",async e=>{e.preventDefault();try{await api('/api/reviews',{method:'POST',body:JSON.stringify({album_id:id,...Object.fromEntries(new FormData(reviewForm))})});toast('Рецензия опубликована');await openAlbum(id);}catch(err){toast(err.message)}});
     const form = $("#ratingForm");
     if (form) {
       form.addEventListener("submit", async (e) => {
@@ -360,6 +369,17 @@ function escapeAttr(value) {
   return escapeHtml(value);
 }
 
+
+function toggleProfileMenu(event){event.stopPropagation();$('#profileMenu')?.classList.toggle('hidden')}
+function closeProfileMenu(){$('#profileMenu')?.classList.add('hidden')}
+document.addEventListener('click',e=>{if(!e.target.closest('.profileMenuWrap'))closeProfileMenu()});
+function showProfile(){if(!currentUser)return openAuth();renderUserPage(currentUser)}
+function showSettings(){if(!currentUser)return openAuth();renderAccountSettings()}
+function accountPage(title,body){$('#homeView').classList.add('hidden');$('#releasePage').classList.add('hidden');$('#pageView').classList.remove('hidden');document.body.classList.remove('releaseOpen');setActiveNav('');$('#pageView').innerHTML=`<section class="accountPage"><button class="ghost" onclick="goHome()">← Главная</button><h1>${title}</h1>${body}</section>`;window.scrollTo(0,0)}
+function renderUserPage(u){accountPage('Аккаунт',`<div class="accountCard"><div class="accountAvatar">${u.avatar_url?`<img src="${escapeAttr(u.avatar_url)}" alt="">`:escapeHtml(u.username.slice(0,1).toUpperCase())}</div><div><h2>@${escapeHtml(u.username)} ${u.is_verified?'<span class="verifiedMark" title="Подтверждённый автор">✓</span>':''}</h2><p>${escapeHtml(u.bio||'Пока без описания')}</p><p class="accountStatus">${u.email_verified?'✓ Почта подтверждена':'◌ Почта не подтверждена'}</p></div></div>${u.is_verified||u.is_admin?'<button class="button" onclick="showAddRelease()">+ Добавить релиз</button>':''}`)}
+function renderAccountSettings(){accountPage('Настройки',`<div class="settingsCard"><h2>Профиль</h2><form id="settingsForm" class="form"><label>Ссылка на аватар (HTTPS)<input name="avatar_url" type="url" value="${escapeAttr(currentUser.avatar_url||'')}" placeholder="https://..."></label><label>О себе<textarea name="bio" rows="4" maxlength="500">${escapeHtml(currentUser.bio||'')}</textarea></label><button class="button">Сохранить</button></form><hr><h2>Электронная почта</h2><p>${escapeHtml(currentUser.email)}</p><p>${currentUser.email_verified?'✓ Почта подтверждена':'Подтверди почту, чтобы оценивать музыку и писать рецензии.'}</p>${currentUser.email_verified?'':'<button class="button secondary" id="resendEmail">Отправить письмо повторно</button>'}</div>`);$('#settingsForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/profile',{method:'PATCH',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});currentUser=d.user;renderAuthArea();toast('Сохранено');renderAccountSettings()}catch(err){toast(err.message)}});$('#resendEmail')?.addEventListener('click',async()=>{try{await api('/api/resend-verification',{method:'POST'});toast('Письмо отправлено')}catch(err){toast(err.message)}})}
+async function showAddRelease(){if(!currentUser?.is_verified&&!currentUser?.is_admin)return toast('Нужна галочка подтверждённого автора');let artists=[];try{artists=(await api('/api/artists')).artists||[]}catch(e){return toast(e.message)}accountPage('Добавить релиз',`<div class="settingsCard"><form id="addReleaseForm" class="form"><label>Исполнитель<select name="artist_id" required>${artists.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('')}</select></label><label>Название<input name="title" required maxlength="200"></label><label>Обложка (HTTPS URL)<input name="cover_url" type="url"></label><label>Дата релиза<input name="release_date" type="date"></label><label>Описание<textarea name="description" rows="4"></textarea></label><button class="button">Опубликовать</button></form>${artists.length?'':'<p>В базе пока нет исполнителей. Их нужно добавить через базу данных.</p>'}</div>`);$('#addReleaseForm').addEventListener('submit',async e=>{e.preventDefault();try{const r=await api('/api/albums',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});toast('Релиз опубликован');await loadAlbums();openAlbum(r.id)}catch(err){toast(err.message)}})}
+
 window.addEventListener("popstate", () => {
   if (location.hash.startsWith("#album-")) {
     const id = Number(location.hash.slice(7));
@@ -376,6 +396,9 @@ window.addEventListener("popstate", () => {
 });
 
 (async function init() {
-  await loadMe();
+  try{await loadMe()}catch(e){toast('Не удалось подключиться к API: '+e.message)}
   await loadAlbums();
+  const verify = new URLSearchParams(location.search).get('verify');
+  if(verify==='success'){toast('Почта подтверждена!');await loadMe();history.replaceState({},'','/')}
+  if(verify==='invalid'){toast('Ссылка подтверждения недействительна или устарела');history.replaceState({},'','/')}
 })();
