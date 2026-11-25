@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <canvas id="romGridCanvas" aria-hidden="true"></canvas>
   <header class="topbar">
     <a class="logo" href="/" onclick="goHome(); return false;">ROM</a>
     <nav aria-label="Основная навигация">
@@ -73,6 +74,7 @@
   </div>
 
   <div id="toast" class="toast"></div>
+  <script src="/grid.js" defer></script>
   <script src="/app.js"></script>
 <script type="module">import {upload} from "https://esm.sh/@vercel/blob@1.1.1/client"; window.romBlobUpload=upload;</script>
 </body>

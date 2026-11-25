@@ -210,13 +210,12 @@ function albumCard(album) {
 }
 
 async function renderPage(page) {
-  romEnterPage('#pageView');
   $('#homeView').classList.add('hidden');
   $('#releasePage').classList.add('hidden');
   $('#pageView').classList.remove('hidden');
   document.body.classList.remove('releaseOpen');
   setActiveNav(page);
-  window.scrollTo(0, 0);
+  window.scrollTo(0, 0);romScheduleBackground();
 
   const pages = {
     best: { eyebrow: 'COMMUNITY RANKING', title: 'Лучшие релизы', intro: 'Альбомы, которые получили самые высокие оценки сообщества.' },
@@ -226,7 +225,9 @@ async function renderPage(page) {
   };
   const meta = pages[page] || pages.new;
   const root = $('#pageView');
+  root.dataset.publicPage='true';
   root.innerHTML = `<section class="pageIntro"><p class="eyebrow">${meta.eyebrow}</p><h1>${meta.title}</h1><p>${meta.intro}</p></section><section id="pageBody" class="pageBody"><div class="empty">Загружаем…</div></section>`;
+  romEnterPage('#pageView');
 
   if (page === 'about') {
     $('#pageBody').innerHTML = `<div class="aboutGrid">
@@ -262,18 +263,34 @@ async function renderPage(page) {
 }
 
 function romEnterPage(selector){
- const el=document.querySelector(selector);if(!el||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
- el.classList.remove('romPageEnter');void el.offsetWidth;el.classList.add('romPageEnter');
+ // Animate inner content only. Never animate the page container: opacity/transform
+ // on the container caused intermittent invisible reviews after interactions.
+ const root=document.querySelector(selector);
+ if(!root||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+ const target=root.matches('#releasePage')?root.querySelector('#releaseContent'):root.matches('#pageView')?root.querySelector('.pageBody, .romProfilePage, .romNewsArticle'):root.querySelector('.hero');
+ if(!target)return;
+ target.classList.remove('romContentReveal');
+ void target.offsetWidth;
+ target.classList.add('romContentReveal');
+ target.addEventListener('animationend',()=>target.classList.remove('romContentReveal'),{once:true});
 }
+function romBackgroundMode(){
+ const release=!$('#releasePage').classList.contains('hidden');
+ const home=!$('#homeView').classList.contains('hidden');
+ const page=!$('#pageView').classList.contains('hidden');
+ const profile=page&&Boolean($('#pageView .romProfilePage'));
+ const catalog=page&&($('#pageView').dataset.publicPage==='true'||Boolean($('#pageView .romNewsArticle')));
+ document.body.classList.toggle('romGridActive',release||home||profile||catalog);
+}
+function romScheduleBackground(){requestAnimationFrame(romBackgroundMode)}
 function goHome() {
-  romEnterPage('#homeView');
   $('#releasePage').classList.add('hidden');
   $('#pageView').classList.add('hidden');
   $('#homeView').classList.remove('hidden');
   document.body.classList.remove('releaseOpen');
   setActiveNav('');
   history.replaceState({}, '', '/');
-  window.scrollTo(0, 0);
+  window.scrollTo(0, 0);romEnterPage('#homeView');romScheduleBackground();
 }
 
 let romActiveAudio=null;
@@ -340,7 +357,7 @@ async function openAlbum(id) {
   <section class="romSection"><div class="romSectionTitle"><h2>Оценки и рецензии</h2><span>${reviews.length}</span></div><div class="romReviews">${reviews.length?reviews.map(r=>`<article class="romReview ${r.body?.trim()?'romTextReview':'romOnlyRating'}"><div class="romReviewUser"><button type="button" class="romReviewAvatar romProfileLink" onclick="openUserProfile(${Number(r.user_id)})" title="Профиль ${escapeAttr(r.username)}">${r.avatar_url?`<img src="${escapeAttr(r.avatar_url)}" alt="">`:escapeHtml(String(r.username||'?').slice(0,1).toUpperCase())}</button><div class="romReviewIdentity"><strong><button type="button" class="romUsernameLink" onclick="openUserProfile(${Number(r.user_id)})">${escapeHtml(r.username)}</button> ${r.is_artist?artistBadge():''}</strong><small>${new Date(r.created_at).toLocaleDateString('ru-RU')}</small></div><strong class="romReviewScore" style="color:${romRatingColor(Number(r.rating))}">${Number(r.rating).toFixed(0)}<small>/90</small></strong></div>${r.body?.trim()?`<div class="romReviewBody">${r.title?`<h3>${escapeHtml(r.title)}</h3>`:''}<p>${escapeHtml(r.body)}</p></div>`:''}</article>`).join(''):'<div class="romNoReviews">Пока никто не оценил этот релиз. Будь первым!</div>'}</div></section>`;
   romAudioInit();
   const composer=$('#ratingComposer');if(composer)composer.addEventListener('submit',async e=>{e.preventDefault();const btn=composer.querySelector('[type="submit"]');btn.disabled=true;try{const f=new FormData(composer);await api('/api/reviews',{method:'POST',body:JSON.stringify({album_id:id,rating:Number(f.get('rating')),title:String(f.get('title')||'').trim(),body:String(f.get('body')||'').trim()})});toast('Оценка опубликована!');await openAlbum(id);await loadAlbums()}catch(err){toast(err.message)}finally{btn.disabled=false}});
-  $('#homeView').classList.add('hidden');$('#pageView').classList.add('hidden');$('#releasePage').classList.remove('hidden');setActiveNav('');document.body.classList.add('releaseOpen');history.replaceState({albumId:id},'',`/#album-${id}`);window.scrollTo(0,0);
+  $('#homeView').classList.add('hidden');$('#pageView').classList.add('hidden');$('#releasePage').classList.remove('hidden');$('#releasePage').classList.remove('romPageEnter');setActiveNav('');document.body.classList.add('releaseOpen');history.replaceState({albumId:id},'',`/#album-${id}`);window.scrollTo(0,0);romEnterPage('#releasePage');romScheduleBackground();
  }catch(err){toast(err.message)}
 }
 
@@ -372,7 +389,7 @@ async function openUserProfile(userId){
  catch(err){toast(err.message)}
 }
 function showSettings(){if(!currentUser)return openAuth();renderAccountSettings()}
-function accountPage(title,body,clean=false){$('#homeView').classList.add('hidden');$('#releasePage').classList.add('hidden');$('#pageView').classList.remove('hidden');document.body.classList.remove('releaseOpen');setActiveNav('');$('#pageView').innerHTML=`<section class="accountPage ${clean?'romProfilePage':''}">${clean?'':`<button class="ghost" onclick="goHome()">← Главная</button><h1>${title}</h1>`}${body}</section>`;window.scrollTo(0,0);if(clean)romEnterPage('#pageView .romProfilePage')}
+function accountPage(title,body,clean=false){$('#pageView').dataset.publicPage='false';$('#homeView').classList.add('hidden');$('#releasePage').classList.add('hidden');$('#pageView').classList.remove('hidden');document.body.classList.remove('releaseOpen');setActiveNav('');$('#pageView').innerHTML=`<section class="accountPage ${clean?'romProfilePage':''}">${clean?'':`<button class="ghost" onclick="goHome()">← Главная</button><h1>${title}</h1>`}${body}</section>`;window.scrollTo(0,0);if(clean)romEnterPage('#pageView .romProfilePage');romScheduleBackground()}
 async function renderUserPage(u){
  accountPage('',`<div class="romProfileTop"><div class="romProfileAvatar">${u.avatar_url?`<img src="${escapeAttr(u.avatar_url)}" alt="">`:escapeHtml(u.username.slice(0,1).toUpperCase())}</div><div class="romProfileIntro"><div class="romProfileKicker">ПРОФИЛЬ ROM</div><h1>${escapeHtml(u.username)} ${u.is_artist?artistBadge():''} ${u.is_verified?'<span class="verifiedMark" title="Подтверждённый автор">✓</span>':''}</h1><p>${escapeHtml(u.bio||'Пока без описания')}</p></div></div>
  <div class="romProfileStats" id="romProfileStats"><div><span>Рецензии</span><strong>—</strong></div><div><span>Релизы</span><strong>—</strong></div><div><span>Оценки</span><strong>—</strong></div></div>
@@ -541,11 +558,13 @@ window.addEventListener("popstate", () => {
     document.body.classList.remove('releaseOpen');
     setActiveNav('');
   }
+  romScheduleBackground();
 });
 
 (async function init() {
   try{await loadMe()}catch(e){toast('Не удалось подключиться к API: '+e.message)}
   await loadAlbums();
+  romScheduleBackground();
   const verify = new URLSearchParams(location.search).get('verify');
   if(verify==='success'){toast('Почта подтверждена!');await loadMe();history.replaceState({},'','/')}
   if(verify==='invalid'){toast('Ссылка подтверждения недействительна или устарела');history.replaceState({},'','/')}
