@@ -446,7 +446,7 @@ function escapeAttr(value) {
 
 function artistBadge(profile=false){
  const klass=profile?'romProfileArtistMark':'artistBadge';
- return `<span class="${klass}" title="Артист ROM" role="img" aria-label="Артист"><img src="/artist-note.png" alt="" draggable="false"></span>`;
+ return `<span class="${klass}" title="Verified artist by ROM." role="img" aria-label="Verified artist by ROM."><img src="/artist-note.png" alt="" draggable="false"></span>`;
 }
 function toggleProfileMenu(event){event.stopPropagation();$('#profileMenu')?.classList.toggle('hidden')}
 function closeProfileMenu(){$('#profileMenu')?.classList.add('hidden')}
