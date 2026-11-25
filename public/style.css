@@ -1884,17 +1884,24 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
   .romProfileIntro h1 .romProfileArtistMark {width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;max-width:30px!important;max-height:30px!important;flex-basis:30px!important;}
   .romProfileIntro h1 .romProfileArtistMark img {width:30px!important;height:30px!important;}
 		/* Положение нотки возле никнейма */
+}
 .romProfileIntro h1 .romProfileArtistMark {
-    transform: translateY(40px) !important;
+    position: relative !important;
+    top: 8px !important;
+    transform: translateY(60) !important;
+
     width: 40px !important;
     height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    max-width: 40px !important;
+    max-height: 40px !important;
     flex-basis: 40px !important;
 }
 
 .romProfileIntro h1 .romProfileArtistMark img {
-    width: 40px !important;
-    height: 40px !important;
-}
+    width: 100% !important;
+    height: 100% !important;
 }
 =======
 >>>>>>> c8b1cbce9793d544fa0b8d0684360c4453ef7305
