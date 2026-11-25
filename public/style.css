@@ -1746,3 +1746,26 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romAdminReviewRow{display:flex;justify-content:space-between;gap:20px;align-items:center}
 .romAdminRowControls{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:700px){.romAdminReviewRow{flex-direction:column;align-items:stretch}}
+
+/* v28 */
+.romProfileIntro h1 .romProfileArtistMark,.romProfileArtistMark,.artistBadge,.romReviewIdentity strong .artistBadge,.menuUsername .artistBadge{box-sizing:border-box!important;display:inline-grid!important;place-items:center!important;width:20px!important;height:20px!important;min-width:20px!important;min-height:20px!important;max-width:20px!important;max-height:20px!important;flex:0 0 20px!important;padding:3px!important;margin:0 0 0 7px!important;vertical-align:middle!important;background:#b8ff6a!important;color:#101510!important;border-radius:50%!important;border:0!important;transform:none!important;line-height:1!important}
+.romProfileIntro h1 .romProfileArtistMark{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;max-width:24px!important;max-height:24px!important;flex-basis:24px!important;padding:4px!important}
+.romProfileArtistMark svg,.artistBadge svg,.romProfileIntro h1 .romProfileArtistMark svg{display:block!important;width:100%!important;height:100%!important;overflow:hidden!important;min-width:0!important;min-height:0!important;max-width:100%!important;max-height:100%!important}
+.romRatingNotice{color:#bdc6b8;font-size:15px;line-height:1.6;margin:0}
+#listenLatest{font-family:inherit!important;font-size:15px!important;font-weight:750!important;letter-spacing:0!important}
+
+/* v29 settings and home footer */
+.romAvatarSettingsRow{display:flex;align-items:center;gap:22px;flex-wrap:wrap;margin:12px 0 20px}
+.romAvatarSettingsRow .romAvatarSettingsPreview{flex:0 0 90px}
+.romAvatarSettingsRow .romAvatarSettingsPreview img{width:90px;height:90px}
+.romAvatarSettingsMeta{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0}
+.romAvatarSettingsMeta .romPrivateId{margin:0;gap:10px;flex-wrap:wrap}
+.romAvatarSettingsMeta .romPrivateId strong{font-size:17px}
+.romEmailVerified{color:#aaff67!important;font-weight:700}
+.homeView{position:relative}
+.romHomeFooter{position:absolute;bottom:16px;left:clamp(18px,5vw,90px);right:clamp(18px,5vw,90px);display:flex;align-items:center;justify-content:space-between;gap:18px;z-index:5;pointer-events:none}
+.romHomeCopyright{color:rgba(170,185,170,.35);font-size:12px;white-space:nowrap}
+.romHomeFooterLinks{display:flex;gap:clamp(12px,2vw,30px);flex-wrap:wrap;justify-content:flex-end;pointer-events:auto}
+.romHomeFooterLinks a{color:#9fae9d;text-decoration:none;font-size:13px;font-weight:700}
+.romHomeFooterLinks a:hover{color:#b8ff6a}
+@media(max-width:680px){.romHomeFooter{position:relative;left:auto;right:auto;bottom:auto;margin:30px 18px 18px;flex-direction:column-reverse;align-items:flex-start}.romHomeFooterLinks{justify-content:flex-start}.romAvatarSettingsRow{align-items:flex-start}}

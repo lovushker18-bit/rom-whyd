@@ -295,9 +295,9 @@ if(path==='/api/albums'&&method==='POST'){
  }catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
 
 }
-if(path==='/api/ratings'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.email_verified)return send(res,403,{error:'Подтверди почту, чтобы ставить оценки.'});if(!validRating(b.rating)||!Number.isInteger(Number(b.album_id)))return send(res,400,{error:'Оценка от 1 до 90.'});await q('INSERT INTO ratings(user_id,album_id,rating) VALUES($1,$2,$3) ON CONFLICT(user_id,album_id) DO UPDATE SET rating=EXCLUDED.rating,updated_at=NOW()',[u.id,b.album_id,b.rating]);return send(res,200,{ok:true});}
+if(path==='/api/ratings'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!validRating(b.rating)||!Number.isInteger(Number(b.album_id)))return send(res,400,{error:'Оценка от 1 до 90.'});await q('INSERT INTO ratings(user_id,album_id,rating) VALUES($1,$2,$3) ON CONFLICT(user_id,album_id) DO UPDATE SET rating=EXCLUDED.rating,updated_at=NOW()',[u.id,b.album_id,b.rating]);return send(res,200,{ok:true});}
 if(path==='/api/reviews'&&method==='POST'){
- const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.email_verified)return send(res,403,{error:'Подтверди почту.'});
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.email_verified&&(String(b.title||'').trim()||String(b.body||'').trim()))return send(res,403,{error:'Подтверди почту, чтобы писать рецензии.'});
  const rating=Number(b.rating),albumId=Number(b.album_id),title=String(b.title||'').trim(),body=String(b.body||'').trim();
  if(!validRating(rating)||!Number.isInteger(albumId)||albumId<1)return send(res,400,{error:'Введи целую оценку от 1 до 90.'});
  if(title&&!body)return send(res,400,{error:'Если указан заголовок, добавь текст рецензии или очисти заголовок.'});

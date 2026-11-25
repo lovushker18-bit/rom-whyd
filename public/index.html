@@ -34,7 +34,7 @@
         <h1><span class="initial">R</span>ate <span class="initial">O</span>ur<br><span class="initial">M</span>usic<span class="heroDot">.</span></h1>
         <p class="heroText">Место, где музыка получает свою оценку. Изучай альбомы, сравнивай мнения и открывай релизы, которые захочется переслушивать.</p>
         <div class="heroActions">
-          <button class="button" id="listenLatest" onclick="listenLatestRelease()">Слушать релиз <span aria-hidden="true">↗</span></button>
+          <button class="button" id="listenLatest" onclick="listenLatestRelease()">Слушать</button>
           <button class="button secondary" id="heroRegister" onclick="openAuth(true)">Создать аккаунт</button>
         </div>
       </div>
@@ -56,6 +56,7 @@
         </div>
       </article>
     </section>
+    <footer class="romHomeFooter" aria-label="Ссылки и информация"><span class="romHomeCopyright">© lovushker, 2026</span><nav class="romHomeFooterLinks"><a href="#faq-user" onclick="romOpenInfoPage(event,'faq-user')">FAQ для пользователя</a><a href="#faq-artist" onclick="romOpenInfoPage(event,'faq-artist')">FAQ для артиста</a><a href="#help" onclick="romOpenInfoPage(event,'help')">Помощь</a></nav></footer>
   </main>
 
   <main id="pageView" class="pageView hidden"></main>
