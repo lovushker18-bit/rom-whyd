@@ -1449,3 +1449,81 @@ body.romGridActive #romGridCanvas{opacity:1!important}
  .romProfileArtistMark{width:22px!important;flex-basis:22px!important}
 }
 @media(prefers-reduced-motion:reduce){#releasePage .romTrack{transition:none!important}}
+
+/* ROM v20 - unified album player colors, simple musical note */
+#releasePage .romPlayer {
+ --rom-player-color: var(--page-glow, #8bff72);
+ --rom-player-ink: #0b0e0b;
+}
+#releasePage .romPlay,
+#releasePage .romPlay:hover,
+#releasePage .romPlay:focus-visible {
+ background: var(--rom-player-color) !important;
+ color: var(--rom-player-ink) !important;
+ box-shadow: 0 0 0 1px color-mix(in srgb,var(--rom-player-color) 25%,transparent) !important;
+}
+#releasePage .romPlayer.is-open {
+ background: color-mix(in srgb,var(--rom-player-color) 9%,#101611) !important;
+ border-color: color-mix(in srgb,var(--rom-player-color) 28%,#27302a) !important;
+}
+#releasePage .romSeek,
+#releasePage .romVolume {
+ accent-color: var(--rom-player-color) !important;
+}
+#releasePage .romVolumeIcon {color: var(--rom-player-color) !important;}
+#releasePage .romSeek::-webkit-slider-thumb,
+#releasePage .romVolume::-webkit-slider-thumb { accent-color: var(--rom-player-color); }
+.romProfileIntro h1 {
+ display:flex !important;
+ align-items:center !important;
+ gap: .16em !important;
+ flex-wrap:wrap;
+}
+.romProfileArtistMark,
+.artistBadge {
+ display:inline-flex !important;
+ align-items:center !important;
+ justify-content:center !important;
+ position:static !important;
+ inset:auto !important;
+ flex:0 0 auto !important;
+ vertical-align:middle !important;
+ width:1em !important;
+ height:1em !important;
+ min-width:0 !important;
+ min-height:0 !important;
+ margin:0 !important;
+ padding:0 !important;
+ border:0 !important;
+ border-radius:0 !important;
+ background:transparent !important;
+ box-shadow:none !important;
+ color:#b8ff74 !important;
+ line-height:1 !important;
+}
+.romProfileIntro h1 .romProfileArtistMark {
+ width:1em !important;
+ height:1em !important;
+ font-size:inherit !important;
+}
+.artistBadge svg,
+.romProfileArtistMark svg,
+.romProfileIntro h1 .romProfileArtistMark svg {
+ display:block !important;
+ width:100% !important;
+ height:100% !important;
+ min-width:0 !important;
+ max-width:none !important;
+ min-height:0 !important;
+ max-height:none !important;
+ flex:none !important;
+ overflow:visible !important;
+}
+.romReviewIdentity strong .artistBadge,
+.menuUsername .artistBadge {
+ font-size:1em !important;
+ align-self:center !important;
+}
+.romProfileIntro .romProfileName {line-height:1.14 !important;}
+/* Profile theme stays the original ROM green, with no per-user controls. */
+.romProfilePage {--page-glow:#8bff72 !important;}
