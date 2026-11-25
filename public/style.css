@@ -1885,7 +1885,7 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
   .romProfileIntro h1 .romProfileArtistMark img {width:30px!important;height:30px!important;}
 		/* Положение нотки возле никнейма */
 .romProfileIntro h1 .romProfileArtistMark {
-    transform: translateY(5px) !important;
+    transform: translateY(10px) !important;
     width: 40px !important;
     height: 40px !important;
     flex-basis: 40px !important;
