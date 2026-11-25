@@ -1271,3 +1271,36 @@ p,small,.mutedSmall,.romTrackTitle small,.romReviewIdentity small{font-size:14px
 @media(prefers-reduced-motion:reduce){.romPageEnter{animation:none!important}}
 @media(max-width:900px){.topbar nav a{font-size:14px!important;padding:11px 4px!important}.logo{font-size:36px!important}}
 @media(max-width:600px){.topbar nav a{font-size:13px!important}.logo{font-size:34px!important}}
+
+/* ROM v16 */
+.romProfilePage,.releasePage{position:relative;isolation:isolate}
+.romProfilePage::before,.releasePage::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:0;transition:opacity .4s;background:radial-gradient(ellipse 55% 35% at 20% 22%,rgba(82,150,72,.12),transparent 80%),radial-gradient(ellipse 40% 50% at 85% 65%,rgba(41,92,79,.10),transparent 80%);background-size:140% 140%;animation:romAmbient 22s ease-in-out infinite alternate}
+.romProfilePage[data-theme=aurora]::before,.releasePage[data-theme=aurora]::before{opacity:1}
+.romProfilePage[data-theme=glow]::before,.releasePage[data-theme=glow]::before{opacity:.65;background:radial-gradient(circle at 55% 20%,rgba(167,255,103,.12),transparent 50%);animation-duration:28s}
+.romProfilePage[data-theme=waves]::before,.releasePage[data-theme=waves]::before{opacity:.8;background:repeating-radial-gradient(ellipse at 70% 30%,transparent 0 85px,rgba(153,255,121,.035) 86px 88px,transparent 90px 155px);animation-duration:35s}
+@keyframes romAmbient{from{background-position:0% 0%;transform:translateY(0)}to{background-position:100% 100%;transform:translateY(18px)}}
+.romProfileIntro h1{gap:4px!important;align-items:center!important}
+.romProfileIntro h1 .artistBadge{width:20px!important;min-width:20px!important;height:22px!important;vertical-align:middle!important}
+.romProfileIntro h1 .artistBadge svg{width:19px!important;height:20px!important;max-width:19px!important;max-height:20px!important}
+.romProfileReviewItem{transition:none!important;transform:none!important}
+.romProfileReviewItem:hover{transform:none!important;background:transparent!important}
+.romProfileReviewTitle{font-size:17px!important;font-weight:750!important}
+.romProfileReviewScore{font-size:30px!important;letter-spacing:-.04em}
+.romProfileReviewScore small{font-size:13px!important}
+.romReviewScore{font-size:32px!important;letter-spacing:-.04em}
+.romReviewScore small{font-size:13px!important}
+.romReview{transition:none!important;transform:none!important}
+.romReview:hover{transform:none!important;box-shadow:none!important}
+.romProfileTop{gap:28px!important}
+.romProfileStats{gap:16px!important}
+.romProfileGrid{gap:20px!important}
+.settingsCard{border-radius:20px!important;border:1px solid #344337!important;padding:clamp(20px,3vw,32px)!important;background:#121a14!important}
+.settingsCard input,.settingsCard select,.settingsCard textarea{border-radius:11px!important;font-size:15px!important}
+.settingsCard label{font-size:15px!important;font-weight:700!important}
+.romAdminAlbumItem{width:100%;display:flex;align-items:center;gap:16px;padding:14px;background:transparent;border:0;border-bottom:1px solid #334035;color:#eaf6e6;text-align:left;cursor:pointer}
+.romAdminAlbumItem:hover{background:#1b281e}
+.romAdminAlbumItem img{width:64px;height:64px;object-fit:cover;border-radius:9px}
+.romAdminAlbumItem span:nth-child(2){display:flex;flex-direction:column;flex:1;gap:5px}
+.romAdminAlbumItem small{color:#9eb39d}
+.romEditTrackRow{padding:18px;margin:14px 0;border:1px solid #344337;border-radius:14px;display:grid;gap:12px}
+@media(prefers-reduced-motion:reduce){.romProfilePage::before,.releasePage::before{animation:none}}
