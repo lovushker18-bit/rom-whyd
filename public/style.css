@@ -1769,3 +1769,8 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romHomeFooterLinks a{color:#9fae9d;text-decoration:none;font-size:13px;font-weight:700}
 .romHomeFooterLinks a:hover{color:#b8ff6a}
 @media(max-width:680px){.romHomeFooter{position:relative;left:auto;right:auto;bottom:auto;margin:30px 18px 18px;flex-direction:column-reverse;align-items:flex-start}.romHomeFooterLinks{justify-content:flex-start}.romAvatarSettingsRow{align-items:flex-start}}
+
+/* v30: admin shortcut beside notifications */
+.romHeaderAdminButton{display:inline-grid;place-items:center;width:42px;height:42px;padding:9px;border:0;background:transparent;color:#b8ff72;cursor:pointer;flex-shrink:0;border-radius:10px}
+.romHeaderAdminButton svg{display:block;width:24px;height:24px}
+.romHeaderAdminButton:hover{background:rgba(184,255,114,.08)}
