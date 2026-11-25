@@ -55,6 +55,31 @@ if(path==='/api/verify-code'&&method==='POST'){
  if(!result.rowCount)return send(res,400,{error:'Неверный или просроченный код. Запроси новый.'});
  await q('UPDATE users SET email_verified=TRUE WHERE id=$1',[u.id]);return send(res,200,{ok:true});
 }
+if(path==='/api/faq'&&method==='GET'){
+ const category=new URL(req.url,'https://rom.local').searchParams.get('category');
+ if(!['user','artist'].includes(category))return send(res,400,{error:'Неизвестная категория FAQ.'});
+ const r=await q('SELECT id,question,answer FROM faq_entries WHERE category=$1 ORDER BY sort_order,id',[category]);return send(res,200,{items:r.rows});
+}
+if(path==='/api/admin/faq'&&method==='GET'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const category=new URL(req.url,'https://rom.local').searchParams.get('category');
+ if(!['user','artist'].includes(category))return send(res,400,{error:'Неизвестная категория FAQ.'});
+ const r=await q('SELECT * FROM faq_entries WHERE category=$1 ORDER BY sort_order,id',[category]);return send(res,200,{items:r.rows});
+}
+if(path==='/api/admin/faq'&&method==='POST'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const category=String(b.category||''),question=String(b.question||'').trim(),answer=String(b.answer||'').trim();
+ if(!['user','artist'].includes(category)||!question||question.length>250||!answer||answer.length>5000)return send(res,400,{error:'Проверь вопрос и ответ.'});
+ const r=await q('INSERT INTO faq_entries(category,question,answer) VALUES($1,$2,$3) RETURNING *',[category,question,answer]);return send(res,201,{item:r.rows[0]});
+}
+const faqItem=path.match(/^\/api\/admin\/faq\/(\d+)$/);
+if(faqItem&&['PATCH','DELETE'].includes(method)){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ if(method==='DELETE'){const r=await q('DELETE FROM faq_entries WHERE id=$1 RETURNING id',[faqItem[1]]);return r.rowCount?send(res,200,{ok:true}):send(res,404,{error:'Вопрос не найден.'});}
+ const category=String(b.category||''),question=String(b.question||'').trim(),answer=String(b.answer||'').trim();
+ if(!['user','artist'].includes(category)||!question||question.length>250||!answer||answer.length>5000)return send(res,400,{error:'Проверь вопрос и ответ.'});
+ const r=await q('UPDATE faq_entries SET category=$1,question=$2,answer=$3,updated_at=NOW() WHERE id=$4 RETURNING *',[category,question,answer,faqItem[1]]);return r.rowCount?send(res,200,{item:r.rows[0]}):send(res,404,{error:'Вопрос не найден.'});
+}
 if(path==='/api/news'&&method==='GET'){
  const r=await q('SELECT id,title,summary,body,cover_url,created_at,updated_at FROM news_posts WHERE published=TRUE ORDER BY created_at DESC LIMIT 60');
  return send(res,200,{posts:r.rows});
@@ -103,9 +128,28 @@ if(activity&&method==='GET'){
  for(const row of ratings.rows){const v=Number(row.rating);if(v>=1&&v<=90)bins[Math.min(8,Math.floor((v-1)/10))]++}
  return send(res,200,{reviews:reviews.rows,review_count:reviews.rows.length,rating_count:ratings.rowCount,release_count:releases.rows[0].count,distribution:bins});
 }
+if(path==='/api/help'&&method==='POST'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт, чтобы отправить вопрос.'});
+ const subject=String(b.subject||'').trim(),message=String(b.message||'').trim();
+ if(!subject||!message||subject.length>50||message.length>300)return send(res,400,{error:'Заполни тему и вопрос.'});
+ await q('INSERT INTO help_requests(user_id,subject,message) VALUES($1,$2,$3)',[u.id,subject,message]);
+ return send(res,201,{ok:true});
+}
+if(path==='/api/admin/help'&&method==='GET'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const r=await q(`SELECT h.id,h.subject,h.message,h.status,h.created_at,u.username,u.public_id FROM help_requests h JOIN users u ON u.id=h.user_id ORDER BY (h.status='pending') DESC,h.created_at DESC LIMIT 200`);
+ return send(res,200,{requests:r.rows});
+}
+const helpAction=path.match(/^\/api\/admin\/help\/(\d+)$/);
+if(helpAction&&method==='PATCH'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ if(b.status!=='closed')return send(res,400,{error:'Неверный статус.'});
+ const r=await q('UPDATE help_requests SET status=$1,reviewed_at=NOW() WHERE id=$2 RETURNING id',['closed',helpAction[1]]);
+ return r.rowCount?send(res,200,{ok:true}):send(res,404,{error:'Обращение не найдено.'});
+}
 if(path==='/api/admin/pending-count'&&method==='GET'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
- const r=await q("SELECT (SELECT COUNT(*) FROM track_submissions WHERE status='pending') + (SELECT COUNT(*) FROM username_change_requests WHERE status='pending') AS count");
+ const r=await q("SELECT (SELECT COUNT(*) FROM track_submissions WHERE status='pending') + (SELECT COUNT(*) FROM username_change_requests WHERE status='pending') + (SELECT COUNT(*) FROM help_requests WHERE status='pending') AS count");
  return send(res,200,{count:Number(r.rows[0].count)});
 }
 if(path==='/api/username-request'&&method==='GET'){
@@ -211,11 +255,23 @@ if(adminVerify&&method==='PATCH'){
  const r=await q('UPDATE users SET is_verified=$1 WHERE public_id=$2 RETURNING id,public_id,username,is_verified',[b.is_verified,adminVerify[1]]);
  return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Пользователь с таким ID не найден.'});
 }
+const adminRating=path.match(/^\/api\/admin\/ratings\/(\d+)\/(\d+)$/);
+if(adminRating&&method==='DELETE'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const client=await db().connect();try{await client.query('BEGIN');await client.query('DELETE FROM reviews WHERE user_id=$1 AND album_id=$2',[adminRating[1],adminRating[2]]);await client.query('DELETE FROM ratings WHERE user_id=$1 AND album_id=$2',[adminRating[1],adminRating[2]]);await client.query('COMMIT');return send(res,200,{ok:true});}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}
 const adminReview=path.match(/^\/api\/admin\/reviews\/(\d+)$/);
 if(adminReview&&method==='DELETE'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
- const r=await q('DELETE FROM reviews WHERE id=$1 RETURNING id,album_id,user_id',[adminReview[1]]);
- return r.rowCount?send(res,200,{ok:true,album_id:r.rows[0].album_id}):send(res,404,{error:'Рецензия не найдена.'});
+ const client=await db().connect();
+ try{
+  await client.query('BEGIN');
+  const r=await client.query('DELETE FROM reviews WHERE id=$1 RETURNING id,album_id,user_id',[adminReview[1]]);
+  if(!r.rowCount){await client.query('ROLLBACK');return send(res,404,{error:'Рецензия не найдена.'});}
+  await client.query('DELETE FROM ratings WHERE user_id=$1 AND album_id=$2',[r.rows[0].user_id,r.rows[0].album_id]);
+  await client.query('COMMIT');
+  return send(res,200,{ok:true,album_id:r.rows[0].album_id});
+ }catch(err){await client.query('ROLLBACK');throw err;}finally{client.release();}
 }
 if(adminReview&&method==='PATCH'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
@@ -233,7 +289,9 @@ if(path==='/api/admin/reviews'&&method==='GET'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
  const r=await q(`SELECT r.id,r.album_id,r.user_id,r.title,r.body,r.rating,r.created_at,u.username,a.title AS album_title,a.cover_url,ar.name AS artist_name
  FROM reviews r JOIN users u ON u.id=r.user_id JOIN albums a ON a.id=r.album_id JOIN artists ar ON ar.id=a.artist_id ORDER BY r.created_at DESC LIMIT 200`);
- return send(res,200,{reviews:r.rows});
+ const standalone=await q(`SELECT 0::bigint AS id,rt.album_id,rt.user_id,''::text AS title,''::text AS body,rt.rating,rt.updated_at AS created_at,u.username,a.title AS album_title,a.cover_url,ar.name AS artist_name FROM ratings rt JOIN users u ON u.id=rt.user_id JOIN albums a ON a.id=rt.album_id JOIN artists ar ON ar.id=a.artist_id WHERE NOT EXISTS (SELECT 1 FROM reviews rv WHERE rv.user_id=rt.user_id AND rv.album_id=rt.album_id) ORDER BY rt.updated_at DESC LIMIT 200`);
+ return send(res,200,{reviews:[...r.rows,...standalone.rows]});
+
 }
 if(path==='/api/admin/users/by-id'&&method==='POST'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
