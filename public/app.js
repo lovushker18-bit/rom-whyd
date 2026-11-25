@@ -210,6 +210,7 @@ function albumCard(album) {
 }
 
 async function renderPage(page) {
+  romEnterPage('#pageView');
   $('#homeView').classList.add('hidden');
   $('#releasePage').classList.add('hidden');
   $('#pageView').classList.remove('hidden');
@@ -260,7 +261,12 @@ async function renderPage(page) {
   }
 }
 
+function romEnterPage(selector){
+ const el=document.querySelector(selector);if(!el||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+ el.classList.remove('romPageEnter');void el.offsetWidth;el.classList.add('romPageEnter');
+}
 function goHome() {
+  romEnterPage('#homeView');
   $('#releasePage').classList.add('hidden');
   $('#pageView').classList.add('hidden');
   $('#homeView').classList.remove('hidden');
@@ -300,6 +306,7 @@ function romReleaseDate(value){
 }
 function romOpenRating(){const composer=document.querySelector('#ratingComposer');if(composer){composer.classList.toggle('hidden');if(!composer.classList.contains('hidden'))composer.querySelector('[name="rating"]').focus()}}
 async function openAlbum(id) {
+ romEnterPage('#releasePage');
  try {
   const data=await api(`/api/albums/${id}`),a=data.album;
   const average=a.average_rating==null?'—':Number(a.average_rating).toFixed(1).replace(/\.0$/,'');
@@ -325,7 +332,7 @@ async function openAlbum(id) {
   </div>
   ${currentUser?.email_verified?`<form id="ratingComposer" class="romComposer hidden"><div class="romComposerHeading"><div><span class="eyebrow">ТВОЯ ОЦЕНКА</span><h3>Оценить ${escapeHtml(a.title)}</h3></div><button type="button" class="romClose" onclick="romOpenRating()" aria-label="Закрыть">✕</button></div><label>Оценка от 1 до 90<input name="rating" type="number" min="1" max="90" step="1" inputmode="numeric" placeholder="Например, 75" required></label><label>Заголовок рецензии <span class="romOptional">необязательно</span><input name="title" maxlength="150" placeholder="Что думаешь о релизе?"></label><label>Текст рецензии <span class="romOptional">необязательно</span><textarea name="body" rows="5" maxlength="10000" placeholder="Поделись впечатлениями или оставь только оценку"></textarea></label><button class="button" type="submit">Опубликовать оценку</button></form>`:''}
   <section class="romSection"><div class="romSectionTitle"><h2>Треклист</h2><span>${data.tracks.length} тр.</span></div><div class="romTrackList">${data.tracks.length?data.tracks.map(t=>`<div class="romTrack"><span class="romTrackIndex">${Number(t.track_number)}</span><div class="romTrackTitle"><strong>${escapeHtml(t.title)}</strong>${t.featuring?`<small>feat. ${escapeHtml(t.featuring)}</small>`:''}</div>${t.audio_url?`<div class="romPlayer"><audio preload="metadata" src="${escapeAttr(t.audio_url)}"></audio><button type="button" class="romPlay" onclick="romPlay(this)" aria-label="Воспроизвести">▶</button><div class="romPlayerExpanded"><span class="romClock">0:00 / 0:00</span><input class="romSeek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Перемотка"><span class="romVolumeIcon">♫</span><input class="romVolume" type="range" min="0" max="100" value="100" aria-label="Громкость"></div></div>`:`<span class="romTrackMissing">Аудио недоступно</span>`}</div>`).join(''):'<p class="empty">Треков пока нет.</p>'}</div></section>
-  <section class="romSection"><div class="romSectionTitle"><h2>Оценки и рецензии</h2><span>${reviews.length}</span></div><div class="romReviews">${reviews.length?reviews.map(r=>`<article class="romReview ${r.body?.trim()?'romTextReview':'romOnlyRating'}"><div class="romReviewUser"><div class="romReviewAvatar">${r.avatar_url?`<img src="${escapeAttr(r.avatar_url)}" alt="">`:escapeHtml(String(r.username||'?').slice(0,1).toUpperCase())}</div><div class="romReviewIdentity"><strong>${escapeHtml(r.username)} ${r.is_artist?artistBadge():''}</strong><small>${new Date(r.created_at).toLocaleDateString('ru-RU')}</small></div><strong class="romReviewScore">${Number(r.rating).toFixed(0)}<small>/90</small></strong></div>${r.body?.trim()?`<div class="romReviewBody">${r.title?`<h3>${escapeHtml(r.title)}</h3>`:''}<p>${escapeHtml(r.body)}</p></div>`:''}</article>`).join(''):'<div class="romNoReviews">Пока никто не оценил этот релиз. Будь первым!</div>'}</div></section>`;
+  <section class="romSection"><div class="romSectionTitle"><h2>Оценки и рецензии</h2><span>${reviews.length}</span></div><div class="romReviews">${reviews.length?reviews.map(r=>`<article class="romReview ${r.body?.trim()?'romTextReview':'romOnlyRating'}"><div class="romReviewUser"><button type="button" class="romReviewAvatar romProfileLink" onclick="openUserProfile(${Number(r.user_id)})" title="Профиль ${escapeAttr(r.username)}">${r.avatar_url?`<img src="${escapeAttr(r.avatar_url)}" alt="">`:escapeHtml(String(r.username||'?').slice(0,1).toUpperCase())}</button><div class="romReviewIdentity"><strong><button type="button" class="romUsernameLink" onclick="openUserProfile(${Number(r.user_id)})">${escapeHtml(r.username)}</button> ${r.is_artist?artistBadge():''}</strong><small>${new Date(r.created_at).toLocaleDateString('ru-RU')}</small></div><strong class="romReviewScore">${Number(r.rating).toFixed(0)}<small>/90</small></strong></div>${r.body?.trim()?`<div class="romReviewBody">${r.title?`<h3>${escapeHtml(r.title)}</h3>`:''}<p>${escapeHtml(r.body)}</p></div>`:''}</article>`).join(''):'<div class="romNoReviews">Пока никто не оценил этот релиз. Будь первым!</div>'}</div></section>`;
   romAudioInit();
   const composer=$('#ratingComposer');if(composer)composer.addEventListener('submit',async e=>{e.preventDefault();const btn=composer.querySelector('[type="submit"]');btn.disabled=true;try{const f=new FormData(composer);await api('/api/reviews',{method:'POST',body:JSON.stringify({album_id:id,rating:Number(f.get('rating')),title:String(f.get('title')||'').trim(),body:String(f.get('body')||'').trim()})});toast('Оценка опубликована!');await openAlbum(id);await loadAlbums()}catch(err){toast(err.message)}finally{btn.disabled=false}});
   $('#homeView').classList.add('hidden');$('#pageView').classList.add('hidden');$('#releasePage').classList.remove('hidden');setActiveNav('');document.body.classList.add('releaseOpen');history.replaceState({albumId:id},'',`/#album-${id}`);window.scrollTo(0,0);
@@ -355,8 +362,12 @@ function toggleProfileMenu(event){event.stopPropagation();$('#profileMenu')?.cla
 function closeProfileMenu(){$('#profileMenu')?.classList.add('hidden')}
 document.addEventListener('click',e=>{if(!e.target.closest('.profileMenuWrap'))closeProfileMenu()});
 function showProfile(){if(!currentUser)return openAuth();renderUserPage(currentUser)}
+async function openUserProfile(userId){
+ try{const result=await api(`/api/users/id/${Number(userId)}`);await renderUserPage(result.user)}
+ catch(err){toast(err.message)}
+}
 function showSettings(){if(!currentUser)return openAuth();renderAccountSettings()}
-function accountPage(title,body,clean=false){$('#homeView').classList.add('hidden');$('#releasePage').classList.add('hidden');$('#pageView').classList.remove('hidden');document.body.classList.remove('releaseOpen');setActiveNav('');$('#pageView').innerHTML=`<section class="accountPage ${clean?'romProfilePage':''}">${clean?'':`<button class="ghost" onclick="goHome()">← Главная</button><h1>${title}</h1>`}${body}</section>`;window.scrollTo(0,0)}
+function accountPage(title,body,clean=false){$('#homeView').classList.add('hidden');$('#releasePage').classList.add('hidden');$('#pageView').classList.remove('hidden');document.body.classList.remove('releaseOpen');setActiveNav('');$('#pageView').innerHTML=`<section class="accountPage ${clean?'romProfilePage':''}">${clean?'':`<button class="ghost" onclick="goHome()">← Главная</button><h1>${title}</h1>`}${body}</section>`;window.scrollTo(0,0);if(clean)romEnterPage('#pageView .romProfilePage')}
 async function renderUserPage(u){
  accountPage('',`<div class="romProfileTop"><div class="romProfileAvatar">${u.avatar_url?`<img src="${escapeAttr(u.avatar_url)}" alt="">`:escapeHtml(u.username.slice(0,1).toUpperCase())}</div><div class="romProfileIntro"><div class="romProfileKicker">ПРОФИЛЬ ROM</div><h1>${escapeHtml(u.username)} ${u.is_artist?artistBadge():''} ${u.is_verified?'<span class="verifiedMark" title="Подтверждённый автор">✓</span>':''}</h1><p>${escapeHtml(u.bio||'Пока без описания')}</p></div></div>
  <div class="romProfileStats" id="romProfileStats"><div><span>Рецензии</span><strong>—</strong></div><div><span>Релизы</span><strong>—</strong></div><div><span>Оценки</span><strong>—</strong></div></div>
@@ -366,7 +377,7 @@ async function renderUserPage(u){
   const d=await api(`/api/users/${Number(u.id)}/activity`);
   if(!document.getElementById('romProfileStats'))return;
   document.getElementById('romProfileStats').innerHTML=`<div><span>Рецензии</span><strong>${d.review_count}</strong></div><div><span>Релизы</span><strong>${d.release_count}</strong></div><div><span>Оценки</span><strong>${d.rating_count}</strong></div>`;
-  document.getElementById('romProfileReviews').innerHTML=d.reviews.length?d.reviews.map(r=>`<button type="button" class="romProfileReviewItem" onclick="openAlbum(${Number(r.album_id)})"><span class="romProfileReviewCover">${r.cover_url?`<img src="${escapeAttr(r.cover_url)}" alt="">`:'♫'}</span><span class="romProfileReviewNames"><strong>${escapeHtml(r.album_title)}</strong><small>${escapeHtml(r.artist_name)}</small></span><span class="romProfileReviewTitle">${escapeHtml(r.title||'Рецензия без заголовка')}</span><strong class="romProfileReviewScore">${Number(r.rating).toFixed(0)}<small>/90</small></strong></button>`).join(''):'<p class="romProfileEmpty">Пока нет написанных рецензий.</p>';
+  document.getElementById('romProfileReviews').innerHTML=d.reviews.length?d.reviews.map(r=>`<button type="button" class="romProfileReviewItem" onclick="openAlbum(${Number(r.album_id)})"><span class="romProfileReviewCover">${r.cover_url?`<img src="${escapeAttr(r.cover_url)}" alt="">`:'♫'}</span><span class="romProfileReviewNames"><strong>${escapeHtml(r.album_title)}</strong><small>${escapeHtml(r.artist_name)}</small></span><span class="romProfileReviewTitle">"${escapeHtml(r.title||'Рецензия без заголовка')}"</span><strong class="romProfileReviewScore">${Number(r.rating).toFixed(0)}<small>/90</small></strong></button>`).join(''):'<p class="romProfileEmpty">Пока нет написанных рецензий.</p>';
   const max=Math.max(1,...d.distribution);
   document.getElementById('romProfileDistribution').innerHTML=[...d.distribution].map((count,i)=>({label:i===8?'81–90':`${i*10+1}–${i*10+10}`,count})).reverse().map(item=>`<div class="romDistributionRow"><span>${item.label}</span><small>${item.count}</small><div class="romDistributionTrack"><div style="width:${item.count/max*100}%"></div></div></div>`).join('');
  }catch(err){const el=document.getElementById('romProfileReviews');if(el)el.textContent='Не удалось загрузить рецензии: '+err.message}

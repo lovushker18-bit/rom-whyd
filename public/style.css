@@ -1245,3 +1245,29 @@ p,small,.mutedSmall,.romTrackTitle small,.romReviewIdentity small{font-size:14px
 .romSubmissionTracks{display:grid;gap:9px;margin-top:15px}
 .romSubmissionTracks>div{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid #344136;padding-top:9px;font-size:14px}
 .romSubmissionTracks a{color:#b8ff6a;white-space:nowrap}
+/* v15 — clean avatars, consistent artist mark, clickable reviewer profiles */
+.avatarButton{border:0!important;outline:0!important;box-shadow:none!important;padding:0!important;appearance:none!important;background:#b8ff6a!important}
+.avatarButton:has(img){background:transparent!important}
+.avatarButton img,.romReviewAvatar img,.romProfileAvatar img{display:block;width:100%!important;height:100%!important;object-fit:cover!important;border-radius:50%!important;border:0!important;box-shadow:none!important}
+.romReviewAvatar{border:0!important;padding:0!important;outline:0!important;box-shadow:none!important;overflow:hidden!important;line-height:1!important}
+.romProfileLink{cursor:pointer;transition:filter .15s}
+.romProfileLink:hover{filter:brightness(1.14)}
+.romUsernameLink{background:transparent;border:0;padding:0;margin:0;font:inherit;font-weight:inherit;color:inherit;cursor:pointer;text-align:left}
+.romUsernameLink:hover{color:#b8ff6a;text-decoration:underline;text-underline-offset:3px}
+.artistBadge,.romProfileIntro h1 .artistBadge{display:inline-flex!important;position:static!important;transform:none!important;vertical-align:-.14em!important;background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:0 0 0 4px!important;width:17px!important;min-width:17px!important;height:19px!important;line-height:1!important;color:#b8ff6a!important;align-items:center!important;justify-content:center!important}
+.artistBadge svg,.romProfileIntro h1 .artistBadge svg{display:block!important;width:16px!important;height:18px!important;max-width:16px!important;max-height:18px!important;flex-shrink:0!important}
+.romProfileIntro h1 .artistBadge{width:23px!important;min-width:23px!important;height:25px!important}
+.romProfileIntro h1 .artistBadge svg{width:21px!important;height:23px!important;max-width:21px!important;max-height:23px!important}
+.topbar nav a,.topbar nav a:hover,.topbar nav a:focus,.topbar nav a.active{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;outline-offset:5px!important;transform:none!important;text-shadow:none!important;transition:color .15s!important}
+.topbar nav a:hover,.topbar nav a:focus-visible{color:#83d968!important;text-shadow:0 0 10px rgba(119,219,86,.18)!important}
+.topbar nav a::before,.topbar nav a::after{display:none!important;content:none!important}
+.topbar nav{gap:clamp(16px,2.4vw,34px)!important}
+.topbar nav a{font-size:17px!important;font-weight:800!important;padding:14px 4px!important}
+.logo{font-size:41px!important;font-weight:900!important;letter-spacing:-.075em!important;animation:none!important;transition:none!important}
+.logo::after,.logo:hover{animation:none!important;transform:none!important;filter:none!important}
+.romProfileReviewTitle{font-weight:750!important}
+@keyframes romPageReveal{from{opacity:0;transform:translateY(13px)}to{opacity:1;transform:translateY(0)}}
+.romPageEnter{animation:romPageReveal .42s cubic-bezier(.22,.8,.28,1) both}
+@media(prefers-reduced-motion:reduce){.romPageEnter{animation:none!important}}
+@media(max-width:900px){.topbar nav a{font-size:14px!important;padding:11px 4px!important}.logo{font-size:36px!important}}
+@media(max-width:600px){.topbar nav a{font-size:13px!important}.logo{font-size:34px!important}}
