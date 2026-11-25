@@ -1,4 +1,5 @@
 let currentUser = null;
+let romPendingTimer = null;
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -92,6 +93,7 @@ async function loadMe() {
   const data = await api("/api/me");
   currentUser = data.user;
   renderAuthArea();
+  refreshPendingBadge();
 }
 
 function renderAuthArea() {
@@ -108,7 +110,7 @@ function renderAuthArea() {
   }
 
   const avatar = currentUser.avatar_url ? `<img src="${escapeAttr(currentUser.avatar_url)}" alt="">` : escapeHtml(currentUser.username.slice(0,1).toUpperCase());
-  area.innerHTML = `${currentUser.is_artist?'<button class="uploadTrackTop" onclick="showTrackSubmission()">♫ Загрузить трек</button>':''}<div class="profileMenuWrap">
+  area.innerHTML = `${currentUser.is_admin?'<button class="romNotificationBell" id="romNotificationBell" onclick="showSubmissions()" aria-label="Заявки на модерацию" title="Заявки на модерацию"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="romBellCount hidden" id="romBellCount">0</span></button>':''}${currentUser.is_artist?'<button class="uploadTrackTop" onclick="showTrackSubmission()">Загрузить трек</button>':''}<div class="profileMenuWrap">
     <button class="avatarButton" onclick="toggleProfileMenu(event)" aria-label="Меню профиля">${avatar}</button>
     <div id="profileMenu" class="profileDropdown hidden">
       <div class="menuUsername">@${escapeHtml(currentUser.username)} ${currentUser.is_artist?artistBadge():''} ${currentUser.is_verified?'✓':''}</div>
@@ -119,10 +121,17 @@ function renderAuthArea() {
   </div>`;
 }
 
+async function refreshPendingBadge(){
+ if(romPendingTimer){clearInterval(romPendingTimer);romPendingTimer=null}
+ if(!currentUser?.is_admin)return;
+ const update=async()=>{try{const d=await api('/api/admin/pending-count'),badge=document.querySelector('#romBellCount');if(!badge)return;badge.textContent=d.count>99?'99+':String(d.count);badge.classList.toggle('hidden',!d.count);document.querySelector('#romNotificationBell')?.setAttribute('title',`${d.count} заявок на модерацию`)}catch(e){console.warn('Notifications:',e.message)}};
+ await update();romPendingTimer=setInterval(()=>{if(document.visibilityState==='visible')update()},45000);
+}
 async function logout() {
   await api("/api/logout", { method: "POST" });
   currentUser = null;
   renderAuthArea();
+  refreshPendingBadge();
   toast("Вы вышли.");
 }
 
@@ -228,7 +237,10 @@ async function renderPage(page) {
   }
 
   if (page === 'news') {
-    $('#pageBody').innerHTML = `<div class="emptyState"><span class="emptyIcon">✳</span><h2>Пока без новостей</h2><p>Здесь будут появляться обновления ROM, анонсы и заметки о музыкальном сообществе.</p></div>`;
+    try{
+      const {posts}=await api('/api/news');window.romNewsCache=posts;
+      $('#pageBody').innerHTML=posts.length?`<div class="romNewsGrid">${posts.map(n=>`<article class="romNewsCard">${n.cover_url?`<img src="${escapeAttr(n.cover_url)}" alt="" loading="lazy">`:''}<div class="romNewsCardBody"><time>${new Date(n.created_at).toLocaleDateString('ru-RU')}</time><h2>${escapeHtml(n.title)}</h2><p>${escapeHtml(n.summary||n.body.slice(0,160))}</p><button class="button secondary" onclick="romReadNews(${Number(n.id)})">Читать</button></div></article>`).join('')}</div>`:'<div class="emptyState"><h2>Пока без новостей</h2><p>Здесь появятся публикации ROM.</p></div>';
+    }catch(e){$('#pageBody').innerHTML=`<div class="emptyState"><h2>Новости пока недоступны</h2><p>${escapeHtml(e.message)}</p></div>`}
     return;
   }
 
@@ -359,23 +371,29 @@ async function renderUserPage(u){
   document.getElementById('romProfileDistribution').innerHTML=[...d.distribution].map((count,i)=>({label:i===8?'81–90':`${i*10+1}–${i*10+10}`,count})).reverse().map(item=>`<div class="romDistributionRow"><span>${item.label}</span><small>${item.count}</small><div class="romDistributionTrack"><div style="width:${item.count/max*100}%"></div></div></div>`).join('');
  }catch(err){const el=document.getElementById('romProfileReviews');if(el)el.textContent='Не удалось загрузить рецензии: '+err.message}
 }
-function renderAccountSettings(){accountPage('Настройки',`<div class="settingsCard"><h2>Профиль</h2><form id="settingsForm" class="form"><label>Ссылка на аватар (HTTPS)<input name="avatar_url" type="url" value="${escapeAttr(currentUser.avatar_url||'')}" placeholder="https://..."></label><label>О себе<textarea name="bio" rows="4" maxlength="500">${escapeHtml(currentUser.bio||'')}</textarea></label><button class="button">Сохранить</button></form><hr><h2>Электронная почта</h2><p>${escapeHtml(currentUser.email)}</p><p>${currentUser.email_verified?'✓ Почта подтверждена':'Подтверди почту, чтобы оценивать музыку и писать рецензии.'}</p>${currentUser.email_verified?'':`<form class="form codeVerifyForm" onsubmit="verifyEmailCode(event)"><label>Код из письма<input name="code" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" placeholder="000000" required></label><button class="button" type="submit">Подтвердить почту</button></form>`}${currentUser.email_verified?'':'<button class="button verifyButton" id="resendEmail">Отправить код повторно</button><p class="verifyHelp">Введи шестизначный код из письма. Проверь папку «Спам».</p>'}</div>`);$('#settingsForm').addEventListener('submit',async e=>{e.preventDefault();try{const d=await api('/api/profile',{method:'PATCH',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});currentUser=d.user;renderAuthArea();toast('Сохранено');renderAccountSettings()}catch(err){toast(err.message)}});$('#resendEmail')?.addEventListener('click',e=>resendVerification(e.currentTarget))}
+function romReadNews(id){
+ const n=(window.romNewsCache||[]).find(n=>Number(n.id)===Number(id));if(!n)return;
+ accountPage('',`<article class="romNewsArticle"><button class="ghost" onclick="renderPage('news')">← Новости</button><time>${new Date(n.created_at).toLocaleDateString('ru-RU')}</time><h1>${escapeHtml(n.title)}</h1>${n.cover_url?`<img src="${escapeAttr(n.cover_url)}" alt="">`:''}<p class="romNewsSummary">${escapeHtml(n.summary)}</p><div class="romNewsText">${escapeHtml(n.body).replace(/\n/g,'<br>')}</div></article>`,true);
+}
+function renderAccountSettings(){accountPage('Настройки',`<div class="settingsCard"><h2>Профиль</h2><form id="settingsForm" class="form"><label>Аватар · PNG/JPG до 2 МБ<input name="avatar_file" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg"></label><div class="romAvatarSettingsPreview">${currentUser.avatar_url?`<img src="${escapeAttr(currentUser.avatar_url)}" alt="Текущий аватар">`:'<span>Нет аватара</span>'}</div><label>О себе<textarea name="bio" rows="4" maxlength="500">${escapeHtml(currentUser.bio||'')}</textarea></label><button class="button">Сохранить</button></form><hr><h2>Электронная почта</h2><p>${escapeHtml(currentUser.email)}</p><p>${currentUser.email_verified?'✓ Почта подтверждена':'Подтверди почту, чтобы оценивать музыку и писать рецензии.'}</p>${currentUser.email_verified?'':`<form class="form codeVerifyForm" onsubmit="verifyEmailCode(event)"><label>Код из письма<input name="code" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" placeholder="000000" required></label><button class="button" type="submit">Подтвердить почту</button></form>`}${currentUser.email_verified?'':'<button class="button verifyButton" id="resendEmail">Отправить код повторно</button><p class="verifyHelp">Введи шестизначный код из письма. Проверь папку «Спам».</p>'}</div>`);$('#settingsForm').addEventListener('submit',async e=>{e.preventDefault();try{const formData=new FormData(e.target),file=formData.get('avatar_file');let avatar_url=currentUser.avatar_url||'';
+if(file instanceof File&&file.size){avatar_url=await uploadRomFile(file,'avatar',e.target.querySelector('button[type="submit"],button'))}
+const d=await api('/api/profile',{method:'PATCH',body:JSON.stringify({bio:String(formData.get('bio')||''),avatar_url})});currentUser=d.user;renderAuthArea();toast('Сохранено');renderAccountSettings()}catch(err){toast(err.message)}});$('#resendEmail')?.addEventListener('click',e=>resendVerification(e.currentTarget))}
 async function verifyEmailCode(event){event.preventDefault();const form=event.currentTarget;const btn=form.querySelector('button');btn.disabled=true;try{await api('/api/verify-code',{method:'POST',body:JSON.stringify({code:new FormData(form).get('code')})});await loadMe();toast('Почта подтверждена!');renderAccountSettings()}catch(err){toast(err.message)}finally{btn.disabled=false}}
 async function resendVerification(button){if(!currentUser)return openAuth();if(button){button.disabled=true;button.textContent='Отправляем…'}try{await api('/api/resend-verification',{method:'POST'});toast('Код отправлен! Проверь входящие и спам.');if(button)button.textContent='Код отправлен'}catch(err){toast(err.message);if(button){button.disabled=false;button.textContent='Повторить отправку кода'}}}
 // Client-side direct upload to Vercel Blob: files never pass through the Vercel function body.
 async function uploadRomFile(file,kind,button){
  if(!file)return '';
- const image=kind==='cover',limit=(image?4:40)*1024*1024;
+ const image=kind==='cover'||kind==='avatar',limit=(kind==='avatar'?2:image?4:40)*1024*1024;
  const ext=(file.name.split('.').pop()||'').toLowerCase();
  if(!((image&&['png','jpg','jpeg'].includes(ext))||(!image&&['mp3','flac','wav'].includes(ext))))throw Error(image?'Обложка: только PNG или JPG.':'Аудио: только MP3, FLAC или WAV.');
- if(file.size>limit)throw Error(`Файл превышает ${image?4:40} МБ.`);
+ if(file.size>limit)throw Error(`Файл превышает ${kind==='avatar'?2:image?4:40} МБ.`);
  const allowed=image?['image/png','image/jpeg']:['audio/mpeg','audio/mp3','audio/flac','audio/x-flac','audio/wav','audio/wave','audio/x-wav'];
  if(file.type&&!allowed.includes(file.type))throw Error('Некорректный формат файла.');
  if(!window.romBlobUpload)throw Error('Модуль загрузки не подключён. Обнови страницу.');
  const name=file.name.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-100);
  const original=button?.textContent;
  try{
-  const blob=await window.romBlobUpload(`${image?'covers':'audio'}/${name}`,file,{
+  const blob=await window.romBlobUpload(`${kind==='avatar'?'avatars':image?'covers':'audio'}/${name}`,file,{
    access:'public',handleUploadUrl:'/api/blob-upload',multipart:!image,
    onUploadProgress:({percentage})=>{if(button)button.textContent=`Загрузка ${Math.round(percentage)}%…`}
   });
@@ -398,7 +416,7 @@ function removeReleaseTrack(btn){const form=document.querySelector('#addReleaseF
 function changeReleaseType(){const form=document.querySelector('#addReleaseForm');if(!form)return;const kind=form.elements.release_type.value;const rows=form.querySelectorAll('[data-track-row]');if(kind==='single'&&rows.length>2){if(!confirm('Для сингла допускается максимум 2 трека. Удалить остальные треки из формы?')){form.elements.release_type.value=form.dataset.previousType||'album';return}Array.from(rows).slice(2).forEach(r=>r.remove())}form.dataset.previousType=kind;updateReleaseTracks()}
 async function submitRomUpload(e,endpoint){e.preventDefault();const form=e.currentTarget,btn=form.querySelector('button[type=submit]');btn.disabled=true;try{
  const data=Object.fromEntries(new FormData(form));const cover=form.elements.cover_file.files[0];
- if(endpoint==='/api/albums'){
+ if(endpoint==='/api/albums'||endpoint==='/api/submissions'){
   const rows=[...form.querySelectorAll('[data-track-row]')];if(!rows.length||rows.length>30)throw Error('Добавь от 1 до 30 треков.');
   const kind=form.elements.release_type.value;if(kind==='single'&&rows.length>2)throw Error('У сингла максимум два трека.');
   const tracks=[];for(let i=0;i<rows.length;i++){const row=rows[i],file=row.querySelector('[name="track_audio"]').files[0];if(!file)throw Error(`Загрузи аудио для трека ${i+1}`);tracks.push({title:row.querySelector('[name="track_title"]').value.trim(),featuring:row.querySelector('[name="track_featuring"]').value.trim(),file})}
@@ -406,10 +424,8 @@ async function submitRomUpload(e,endpoint){e.preventDefault();const form=e.curre
   data.tracks=[];for(let i=0;i<tracks.length;i++){btn.textContent=`Трек ${i+1} из ${tracks.length}…`;const t=tracks[i];data.tracks.push({title:t.title,featuring:t.featuring,audio_url:await uploadRomFile(t.file,'audio',btn)})}
   data.release_type=kind==='single'&&tracks.length===2?'multi_single':kind;
   delete data.cover_file;delete data.track_title;delete data.track_featuring;delete data.track_audio;
- }else{
-  const audio=form.elements.audio_file.files[0];if(!audio)throw Error('Выбери аудиофайл.');data.cover_url=cover?await uploadRomFile(cover,'cover',btn):'';data.audio_url=await uploadRomFile(audio,'audio',btn);delete data.cover_file;delete data.audio_file;
  }
- const r=await api(endpoint,{method:'POST',body:JSON.stringify(data)});toast(endpoint==='/api/albums'?'Релиз опубликован!':'Трек отправлен на рассмотрение!');if(endpoint==='/api/albums'){await loadAlbums();openAlbum(r.id)}else await showSubmissions();
+ const r=await api(endpoint,{method:'POST',body:JSON.stringify(data)});toast(endpoint==='/api/albums'?'Релиз опубликован!':'Релиз отправлен на рассмотрение!');if(endpoint==='/api/albums'){await loadAlbums();openAlbum(r.id)}else await showSubmissions();
  }catch(err){toast(err.message);alert(err.message)}finally{btn.disabled=false;btn.textContent=endpoint==='/api/albums'?'Опубликовать':'Отправить на рассмотрение →'}
 }
 async function showAddRelease(){
@@ -422,13 +438,40 @@ async function showAddRelease(){
 function imagePreview(input,target){const img=document.querySelector(target);if(!img)return;const url=input.value.trim();if(/^https:\/\/[^\s]+$/i.test(url)){img.src=url;img.classList.remove('hidden')}else{img.removeAttribute('src');img.classList.add('hidden')}}
 function showTrackSubmission(){
  if(!currentUser)return openAuth();if(!currentUser.is_artist)return toast('Загрузка доступна только артистам с зелёной ноткой.');
- accountPage('Отправить трек',`<p class="studioLead">Твой трек попадёт на рассмотрение команды ROM и не будет опубликован автоматически.</p><div class="studioGrid"><form id="trackSubmissionForm" class="settingsCard form studioForm">${releaseFormHtml(true)}<label>Описание<textarea name="description" rows="5" maxlength="2000" placeholder="Расскажи о треке"></textarea></label><button class="button" type="submit">Отправить на рассмотрение →</button></form><div class="previewPanel"><p class="eyebrow">ПРЕДПРОСМОТР ОБЛОЖКИ</p><img id="uploadCoverPreview" class="previewImage hidden" alt="Обложка"><div class="previewPlaceholder">♫</div><p class="mutedSmall">Обложка PNG/JPG до 4 МБ. Трек MP3/FLAC/WAV до 40 МБ.</p></div></div>`);
- $('#trackSubmissionForm').addEventListener('submit',e=>submitRomUpload(e,'/api/submissions'));
+ accountPage('Отправить релиз',`<p class="studioLead">Заполни данные релиза и загрузи треки. После отправки заявка появится у модератора ROM — автоматической публикации нет.</p><div class="studioGrid"><form id="addReleaseForm" class="settingsCard form studioForm">${releaseFormHtml(false)}<label>Тип релиза<select name="release_type" onchange="changeReleaseType()"><option value="single">Сингл</option><option value="ep">EP</option><option value="album">Альбом</option></select></label><div class="releaseTypeInfo"><span id="releaseTypeEffective">Сингл</span><p id="releaseTypeHint"></p></div><label>Дата релиза<div class="releaseDateRow"><input name="release_date" type="date"><button type="button" class="todayButton" onclick="setReleaseToday(this)">Сегодня</button></div></label><label>Описание<textarea name="description" rows="4" maxlength="2000"></textarea></label><div class="releaseTracksTitle"><h3>Треклист</h3><span>До 40 МБ на трек</span></div><div id="releaseTracks">${releaseTrackRow(1)}</div><button class="addTrackButton" id="addTrackButton" type="button" onclick="addReleaseTrack()">＋ Добавить трек</button><button class="button" type="submit">Отправить на рассмотрение</button></form><div class="previewPanel"><p class="eyebrow">ПРЕДПРОСМОТР ОБЛОЖКИ</p><img id="uploadCoverPreview" class="previewImage hidden" alt="Обложка"><div class="previewPlaceholder">♫</div><p class="mutedSmall">Обложка PNG/JPG до 4 МБ. MP3/FLAC/WAV до 40 МБ на трек. Релиз проверяется администрацией.</p></div></div>`);
+ updateReleaseTracks();$('#addReleaseForm').addEventListener('submit',e=>submitRomUpload(e,'/api/submissions'));
 }
 
-async function showSubmissions(){if(!currentUser)return openAuth();accountPage(currentUser.is_admin?'Модерация треков':'Мои заявки','<div class="empty">Загружаем заявки…</div>');try{const {submissions}=await api('/api/submissions');accountPage(currentUser.is_admin?'Модерация треков':'Мои заявки',`<div class="studioList">${submissions.length?submissions.map(t=>`<article class="submissionCard"><div class="submissionThumb">${t.cover_url?`<img src="${escapeAttr(t.cover_url)}" alt="" loading="lazy" onerror="this.style.display='none'">`:'♫'}</div><div class="submissionInfo"><div class="submissionMeta">${escapeHtml(t.artist_name)} ${t.featuring?`feat. ${escapeHtml(t.featuring)}`:""} · @${escapeHtml(t.username)}</div><h3>${escapeHtml(t.title)}</h3><p>${escapeHtml(t.description||'Без описания')}</p><a href="${escapeAttr(t.audio_url)}" target="_blank" rel="noopener noreferrer">Открыть аудио ↗</a></div><div class="submissionActions"><span class="submissionStatus ${escapeAttr(t.status)}">${{pending:'На рассмотрении',approved:'Одобрено',rejected:'Отклонено'}[t.status]||escapeHtml(t.status)}</span>${currentUser.is_admin?`<button class="button" onclick="moderateTrack(${Number(t.id)},'approved')">Одобрить</button><button class="button secondary" onclick="moderateTrack(${Number(t.id)},'rejected')">Отклонить</button>`:''}</div></article>`).join(''):'<div class="emptyState"><h2>Пока нет заявок</h2><p>Здесь появятся отправленные треки.</p></div>'}</div>`)}catch(e){toast(e.message)}}
-async function moderateTrack(id,status){try{await api(`/api/submissions/${id}`,{method:'PATCH',body:JSON.stringify({status})});toast('Статус обновлён');showSubmissions()}catch(e){toast(e.message)}}
-async function showTestPanel(){if(!currentUser?.is_admin)return toast('Только администратор');accountPage('Панель тестирования',`<div class="studioGrid"><button class="button" onclick="showSubmissions()">♫ Заявки на модерацию</button><div class="settingsCard"><h2>Роли пользователей</h2><p>Выдавай зелёную нотку артистам. Доступ проверяется сервером.</p><div id="adminUsers">Загрузка…</div></div></div>`);try{const {users}=await api('/api/admin/users');$('#adminUsers').innerHTML=users.map(u=>`<div class="adminUserRow"><span>@${escapeHtml(u.username)} ${u.is_artist?artistBadge():''}<small>${u.email_verified?' · Email ✓':' · Email не подтверждён'}</small></span><button class="button secondary" onclick="setArtist(${Number(u.id)},${!u.is_artist})">${u.is_artist?'Снять нотку':'Выдать нотку'}</button></div>`).join('')}catch(e){toast(e.message)}}
+async function showSubmissions(){if(!currentUser)return openAuth();accountPage(currentUser.is_admin?'Модерация треков':'Мои заявки','<div class="empty">Загружаем заявки…</div>');try{const {submissions}=await api('/api/submissions');accountPage(currentUser.is_admin?'Модерация треков':'Мои заявки',`<div class="studioList">${submissions.length?submissions.map(t=>`<article class="submissionCard"><div class="submissionThumb">${t.cover_url?`<img src="${escapeAttr(t.cover_url)}" alt="" loading="lazy" onerror="this.style.display='none'">`:'♫'}</div><div class="submissionInfo"><div class="submissionMeta">${escapeHtml(t.artist_name)} ${t.featuring?`feat. ${escapeHtml(t.featuring)}`:""} · ${escapeHtml(t.username)}</div><h3>${escapeHtml(t.title)}</h3><p>${escapeHtml(t.description||'Без описания')}</p><p class="mutedSmall">${escapeHtml(({single:'Сингл',multi_single:'Мульти-сингл',ep:'EP',album:'Альбом'})[t.release_type]||'Сингл')} · ${escapeHtml(t.release_date||'Дата не указана')}</p><div class="romSubmissionTracks">${(Array.isArray(t.tracks_json)&&t.tracks_json.length?t.tracks_json:[{title:t.title,audio_url:t.audio_url}]).map((track,i)=>`<div><span>${i+1}. ${escapeHtml(track.title)} ${track.featuring?`· feat. ${escapeHtml(track.featuring)}`:''}</span><a href="${escapeAttr(track.audio_url)}" target="_blank" rel="noopener noreferrer">Аудио ↗</a></div>`).join('')}</div></div><div class="submissionActions"><span class="submissionStatus ${escapeAttr(t.status)}">${{pending:'На рассмотрении',approved:'Одобрено',rejected:'Отклонено'}[t.status]||escapeHtml(t.status)}</span>${currentUser.is_admin?`<button class="button" onclick="moderateTrack(${Number(t.id)},'approved')">Одобрить</button><button class="button secondary" onclick="moderateTrack(${Number(t.id)},'rejected')">Отклонить</button>`:''}</div></article>`).join(''):'<div class="emptyState"><h2>Пока нет заявок</h2><p>Здесь появятся отправленные треки.</p></div>'}</div>`)}catch(e){toast(e.message)}}
+async function moderateTrack(id,status){try{await api(`/api/submissions/${id}`,{method:'PATCH',body:JSON.stringify({status})});toast('Статус обновлён');refreshPendingBadge();showSubmissions()}catch(e){toast(e.message)}}
+async function showTestPanel(){if(!currentUser?.is_admin)return toast('Только администратор');accountPage('Панель тестирования',`<div class="studioGrid"><div class="romAdminShortcuts"><button class="button" onclick="showSubmissions()">Заявки на модерацию</button><button class="button" onclick="showAdminNews()">Управление новостями</button></div><div class="settingsCard"><h2>Роли пользователей</h2><p>Выдавай зелёную нотку артистам. Доступ проверяется сервером.</p><div id="adminUsers">Загрузка…</div></div></div>`);try{const {users}=await api('/api/admin/users');$('#adminUsers').innerHTML=users.map(u=>`<div class="adminUserRow"><span>@${escapeHtml(u.username)} ${u.is_artist?artistBadge():''}<small>${u.email_verified?' · Email ✓':' · Email не подтверждён'}</small></span><button class="button secondary" onclick="setArtist(${Number(u.id)},${!u.is_artist})">${u.is_artist?'Снять нотку':'Выдать нотку'}</button></div>`).join('')}catch(e){toast(e.message)}}
+async function showAdminNews(){
+ if(!currentUser?.is_admin)return toast('Только администратор');
+ accountPage('Управление новостями',`<div class="romNewsAdminGrid"><form id="romNewsForm" class="settingsCard form"><h2 id="romNewsFormTitle">Новая публикация</h2><input type="hidden" name="post_id"><label>Заголовок<input name="title" maxlength="180" required></label><label>Краткое описание<input name="summary" maxlength="500"></label><label>Текст новости<textarea name="body" rows="10" required></textarea></label><label>Обложка · PNG/JPG до 4 МБ<input type="file" name="cover_file" accept=".png,.jpg,.jpeg"></label><label class="romNewsPublish"><input type="checkbox" name="published" checked> Опубликовать сразу</label><button class="button" type="submit">Сохранить новость</button><button class="button secondary" type="button" onclick="showAdminNews()">Очистить форму</button></form><div class="settingsCard"><h2>Публикации</h2><div id="romAdminNewsList">Загрузка…</div></div></div>`);
+ document.querySelector('#romNewsForm').addEventListener('submit',romSaveNews);
+ try{const d=await api('/api/admin/news');window.romAdminNewsCache=d.posts;document.querySelector('#romAdminNewsList').innerHTML=d.posts.length?d.posts.map(n=>`<div class="romAdminNewsRow"><div><strong>${escapeHtml(n.title)}</strong><small>${n.published?'Опубликовано':'Черновик'} · ${new Date(n.created_at).toLocaleDateString('ru-RU')}</small></div><div><button type="button" class="button secondary" onclick="romEditNews(${Number(n.id)})">Изменить</button><button type="button" class="button secondary" onclick="romDeleteNews(${Number(n.id)})">Удалить</button></div></div>`).join(''):'<p class="mutedSmall">Пока нет новостей.</p>'}catch(e){toast(e.message)}
+}
+function romEditNews(id){
+ const n=(window.romAdminNewsCache||[]).find(x=>Number(x.id)===Number(id));if(!n)return;
+ const f=document.querySelector('#romNewsForm');if(!f)return;
+ f.elements.post_id.value=n.id;f.elements.title.value=n.title;f.elements.summary.value=n.summary;f.elements.body.value=n.body;f.elements.published.checked=n.published;
+ f.dataset.cover=n.cover_url||'';document.querySelector('#romNewsFormTitle').textContent='Редактирование новости';f.scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function romSaveNews(e){
+ e.preventDefault();const f=e.currentTarget,btn=f.querySelector('[type="submit"]');btn.disabled=true;
+ try{
+  const data=new FormData(f),file=data.get('cover_file'),id=Number(data.get('post_id')||0);
+  let cover_url=f.dataset.cover||'';
+  if(file instanceof File&&file.size)cover_url=await uploadRomFile(file,'cover',btn);
+  const payload={title:data.get('title'),summary:data.get('summary'),body:data.get('body'),cover_url,published:data.get('published')==='on'};
+  await api(id?`/api/admin/news/${id}`:'/api/admin/news',{method:id?'PATCH':'POST',body:JSON.stringify(payload)});
+  toast('Новость сохранена');showAdminNews();
+ }catch(err){toast(err.message)}finally{btn.disabled=false}
+}
+async function romDeleteNews(id){
+ if(!confirm('Удалить новость без возможности восстановления?'))return;
+ try{await api(`/api/admin/news/${id}`,{method:'DELETE'});toast('Новость удалена');showAdminNews()}catch(err){toast(err.message)}
+}
 async function setArtist(id,is_artist){try{await api(`/api/admin/users/${id}/artist`,{method:'PATCH',body:JSON.stringify({is_artist})});toast('Роль обновлена');await loadMe();showTestPanel()}catch(e){toast(e.message)}}
 
 window.addEventListener("popstate", () => {

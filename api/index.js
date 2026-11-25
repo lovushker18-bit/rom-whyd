@@ -37,11 +37,12 @@ if(path==='/api/blob-upload'&&method==='POST'){
  try{
   const blobBody=typeof b==='string'?JSON.parse(b):b;
   const result=await handleUpload({body:blobBody,request:req,onBeforeGenerateToken:async(pathname,clientPayload)=>{
-   const kind=String(pathname).startsWith('covers/')?'cover':String(pathname).startsWith('audio/')?'audio':null;
+   const kind=String(pathname).startsWith('covers/')?'cover':String(pathname).startsWith('audio/')?'audio':String(pathname).startsWith('avatars/')?'avatar':null;
    if(!kind)throw Error('Недопустимый путь загрузки.');
+   if(kind==='avatar'&&!u.email_verified)throw Error('Подтверди почту для загрузки аватара.');
    if(kind==='audio'&&!u.is_artist&&!u.is_verified&&!u.is_admin)throw Error('Аудио могут загружать только артисты.');
    if(kind==='cover'&&!u.is_artist&&!u.is_verified&&!u.is_admin)throw Error('Нет доступа к загрузке обложек.');
-   return {allowedContentTypes:kind==='cover'?['image/png','image/jpeg']:['audio/mpeg','audio/mp3','audio/flac','audio/x-flac','audio/wav','audio/wave','audio/x-wav'],maximumSizeInBytes:kind==='cover'?4*1024*1024:40*1024*1024,addRandomSuffix:true,tokenPayload:JSON.stringify({userId:u.id,kind})};
+   return {allowedContentTypes:kind==='cover'||kind==='avatar'?['image/png','image/jpeg']:['audio/mpeg','audio/mp3','audio/flac','audio/x-flac','audio/wav','audio/wave','audio/x-wav'],maximumSizeInBytes:kind==='avatar'?2*1024*1024:kind==='cover'?4*1024*1024:40*1024*1024,addRandomSuffix:true,tokenPayload:JSON.stringify({userId:u.id,kind})};
   },onUploadCompleted:async()=>{}});
   return send(res,200,result);
  }catch(e){console.error('Blob upload error:',e);return send(res,400,{error:'Ошибка загрузки Blob: '+e.message});}
@@ -53,6 +54,32 @@ if(path==='/api/verify-code'&&method==='POST'){
  const result=await q(`DELETE FROM email_tokens WHERE user_id=$1 AND token_hash=$2 AND expires_at>NOW() RETURNING user_id`,[u.id,sha(`${u.id}:${code}`)]);
  if(!result.rowCount)return send(res,400,{error:'Неверный или просроченный код. Запроси новый.'});
  await q('UPDATE users SET email_verified=TRUE WHERE id=$1',[u.id]);return send(res,200,{ok:true});
+}
+if(path==='/api/news'&&method==='GET'){
+ const r=await q('SELECT id,title,summary,body,cover_url,created_at,updated_at FROM news_posts WHERE published=TRUE ORDER BY created_at DESC LIMIT 60');
+ return send(res,200,{posts:r.rows});
+}
+if(path==='/api/admin/news'&&method==='GET'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const r=await q('SELECT * FROM news_posts ORDER BY created_at DESC LIMIT 100');return send(res,200,{posts:r.rows});
+}
+if(path==='/api/admin/news'&&method==='POST'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const title=String(b.title||'').trim(),summary=String(b.summary||'').trim(),body=String(b.body||'').trim(),cover=String(b.cover_url||'').trim();
+ if(title.length<3||title.length>180||summary.length>500||body.length<3||body.length>20000||cover.length>1000||cover&&!/^https:\/\//.test(cover))return send(res,400,{error:'Проверь заголовок, текст и обложку.'});
+ const r=await q('INSERT INTO news_posts(title,summary,body,cover_url,published,author_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[title,summary,body,cover,b.published===true,u.id]);return send(res,201,{post:r.rows[0]});
+}
+const newsItem=path.match(/^\/api\/admin\/news\/(\d+)$/);
+if(newsItem&&method==='DELETE'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ await q('DELETE FROM news_posts WHERE id=$1',[newsItem[1]]);return send(res,200,{ok:true});
+}
+if(newsItem&&method==='PATCH'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const title=String(b.title||'').trim(),summary=String(b.summary||'').trim(),body=String(b.body||'').trim(),cover=String(b.cover_url||'').trim();
+ if(title.length<3||title.length>180||summary.length>500||body.length<3||body.length>20000||cover.length>1000||cover&&!/^https:\/\//.test(cover))return send(res,400,{error:'Проверь заголовок, текст и обложку.'});
+ const r=await q('UPDATE news_posts SET title=$1,summary=$2,body=$3,cover_url=$4,published=$5,updated_at=NOW() WHERE id=$6 RETURNING *',[title,summary,body,cover,b.published===true,newsItem[1]]);
+ return r.rowCount?send(res,200,{post:r.rows[0]}):send(res,404,{error:'Новость не найдена.'});
 }
 if(path==='/api/me'&&method==='GET')return send(res,200,{user:safe(await me(req))});
 if(path==='/api/register'&&method==='POST'){const username=String(b.username||'').trim(),email=String(b.email||'').trim().toLowerCase(),password=String(b.password||'');if(!/^[\p{L}\p{N}_-]{3,24}$/u.test(username)||!/^\S+@\S+\.\S+$/.test(email)||password.length<8||password.length>128)return send(res,400,{error:'Ник 3–24 символа, корректная почта и пароль от 8 символов обязательны.'});if(!process.env.GMAIL_USER||!process.env.GMAIL_APP_PASSWORD)return send(res,503,{error:'Администратор ещё не настроил отправку писем.'});const hash=await bcrypt.hash(password,12);let r;try{r=await q('INSERT INTO users(username,email,password_hash) VALUES($1,$2,$3) RETURNING *',[username,email,hash]);}catch(e){if(e.code==='23505')return send(res,409,{error:'Ник или почта уже заняты.'});throw e;}await session(res,r.rows[0]);try{await sendVerification(r.rows[0]);}catch(e){return send(res,201,{user:safe(r.rows[0]),email_sent:false,message:'Аккаунт создан, но письмо не отправлено. Повтори отправку в настройках.'});}return send(res,201,{user:safe(r.rows[0]),email_sent:true});}
@@ -75,14 +102,23 @@ if(activity&&method==='GET'){
  for(const row of ratings.rows){const v=Number(row.rating);if(v>=1&&v<=90)bins[Math.min(8,Math.floor((v-1)/10))]++}
  return send(res,200,{reviews:reviews.rows,review_count:reviews.rows.length,rating_count:ratings.rowCount,release_count:releases.rows[0].count,distribution:bins});
 }
+if(path==='/api/admin/pending-count'&&method==='GET'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const r=await q("SELECT COUNT(*)::int AS count FROM track_submissions WHERE status='pending'");
+ return send(res,200,{count:r.rows[0].count});
+}
 if(path==='/api/submissions'&&method==='POST'){
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
  if(!u.email_verified)return send(res,403,{error:'Сначала подтверди почту.'});
  if(!u.is_artist)return send(res,403,{error:'Отправлять треки могут только артисты с зелёной ноткой.'});
- const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),featuring=String(b.featuring||'').trim(),audio=String(b.audio_url||'').trim(),cover=String(b.cover_url||'').trim(),description=String(b.description||'').trim();
- if(!title||title.length>150||!artist||artist.length>120||featuring.length>250||description.length>2000||!/^https:\/\/[^\s]+$/i.test(audio)||audio.length>1500||cover&&(!/^https:\/\/[^\s]+$/i.test(cover)||cover.length>1500))return send(res,400,{error:'Укажи исполнителя, название и HTTPS-ссылку на трек. Проверь длину полей.'});
+ const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),featuring=String(b.featuring||'').trim(),cover=String(b.cover_url||'').trim(),description=String(b.description||'').trim(),kind=String(b.release_type||'single'),tracks=b.tracks;
+ if(!title||title.length>150||!artist||artist.length>120||featuring.length>250||description.length>2000||cover&&(!/^https:\/\/[^\s]+$/i.test(cover)||cover.length>1500))return send(res,400,{error:'Проверь данные релиза.'});
+ if(!Array.isArray(tracks)||tracks.length<1||tracks.length>30||!['single','multi_single','ep','album'].includes(kind)||kind==='single'&&tracks.length!==1||kind==='multi_single'&&tracks.length!==2)return send(res,400,{error:'Тип релиза не соответствует количеству треков.'});
+ const clean=[];
+ for(const t of tracks){const name=String(t.title||'').trim(),ft=String(t.featuring||'').trim(),url=String(t.audio_url||'').trim();if(!name||name.length>200||ft.length>250||!/^https:\/\/[^\s]+$/i.test(url)||url.length>1500)return send(res,400,{error:'Проверь название и аудиофайл каждого трека.'});clean.push({title:name,featuring:ft,audio_url:url});}
  const count=await q(`SELECT COUNT(*)::int n FROM track_submissions WHERE user_id=$1 AND created_at>NOW()-INTERVAL '1 day'`,[u.id]);if(count.rows[0].n>=10)return send(res,429,{error:'Не больше 10 заявок в сутки.'});
- const r=await q('INSERT INTO track_submissions(user_id,title,artist_name,audio_url,cover_url,description,featuring) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id',[u.id,title,artist,audio,cover,description,featuring]);return send(res,201,{id:r.rows[0].id,status:'pending'});
+ const r=await q('INSERT INTO track_submissions(user_id,title,artist_name,audio_url,cover_url,description,featuring,release_type,release_date,tracks_json) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb) RETURNING id',[u.id,title,artist,clean[0].audio_url,cover,description,featuring,kind,String(b.release_date||''),JSON.stringify(clean)]);
+ return send(res,201,{id:r.rows[0].id,status:'pending'});
 }
 if(path==='/api/submissions'&&method==='GET'){
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
