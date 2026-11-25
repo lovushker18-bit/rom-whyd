@@ -1904,5 +1904,9 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
     width: 100% !important;
     height: 100% !important;
 }
+.romProfileIntro h1 .romProfileArtistMark {
+    position: relative !important;
+    left: -10px !important;
+}
 =======
 >>>>>>> c8b1cbce9793d544fa0b8d0684360c4453ef7305
