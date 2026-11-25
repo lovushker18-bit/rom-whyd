@@ -228,6 +228,7 @@ async function renderPage(page) {
   const meta = pages[page] || pages.new;
   const root = $('#pageView');
   root.dataset.publicPage='true';
+  root.classList.toggle('romNewsFeedPage',page==='news');
   root.innerHTML = `<section class="pageIntro"><p class="eyebrow">${meta.eyebrow}</p><h1>${meta.title}</h1><p>${meta.intro}</p></section><section id="pageBody" class="pageBody"><div class="empty">Загружаем…</div></section>`;
   romEnterPage('#pageView');
 
@@ -243,7 +244,9 @@ async function renderPage(page) {
   if (page === 'news') {
     try{
       const {posts}=await api('/api/news');if(requestId!==romPageRequest)return;window.romNewsCache=posts;
-      $('#pageBody').innerHTML=posts.length?`<div class="romNewsGrid">${posts.map(n=>`<article class="romNewsCard">${n.cover_url?`<img src="${escapeAttr(n.cover_url)}" alt="" loading="lazy">`:''}<div class="romNewsCardBody"><time>${new Date(n.created_at).toLocaleDateString('ru-RU')}</time><h2>${escapeHtml(n.title)}</h2><p>${escapeHtml(n.summary||n.body.slice(0,160))}</p><button class="button secondary" onclick="romReadNews(${Number(n.id)})">Читать</button></div></article>`).join('')}</div>`:'<div class="emptyState"><h2>Пока без новостей</h2><p>Здесь появятся публикации ROM.</p></div>';
+      $('#pageView').classList.add('romNewsFeedPage');
+      $('#pageView .pageIntro').innerHTML='<p class="eyebrow">ROM JOURNAL</p><h1>Новости</h1><p>Листай вниз, чтобы увидеть следующую публикацию.</p>';
+      $('#pageBody').innerHTML=posts.length?`<div class="romNewsFeed">${posts.map((n,i)=>`<article class="romNewsSlide" aria-label="Новость ${i+1} из ${posts.length}"><div class="romNewsSlideInner">${n.cover_url?`<img class="romNewsSlideCover" src="${escapeAttr(n.cover_url)}" alt="Обложка новости" loading="${i===0?'eager':'lazy'}">`:'<div class="romNewsSlideCover romNewsSlidePlaceholder">ROM<span>.</span></div>'}<div class="romNewsSlideCopy"><div class="romNewsSlideMeta"><time>${new Date(n.created_at).toLocaleDateString('ru-RU')}</time><span>${String(i+1).padStart(2,'0')} / ${String(posts.length).padStart(2,'0')}</span></div><h2>${escapeHtml(n.title)}</h2><div class="romNewsSlideText">${escapeHtml(n.body).replace(/\n/g,'<br>')}</div></div></div></article>`).join('')}</div>`:'<div class="emptyState"><h2>Пока без новостей</h2><p>Здесь появятся публикации ROM.</p></div>';
     }catch(e){if(requestId!==romPageRequest)return;$('#pageBody').innerHTML=`<div class="emptyState"><h2>Новости пока недоступны</h2><p>${escapeHtml(e.message)}</p></div>`}
     return;
   }

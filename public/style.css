@@ -1774,3 +1774,22 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romHeaderAdminButton{display:inline-grid;place-items:center;width:42px;height:42px;padding:9px;border:0;background:transparent;color:#b8ff72;cursor:pointer;flex-shrink:0;border-radius:10px}
 .romHeaderAdminButton svg{display:block;width:24px;height:24px}
 .romHeaderAdminButton:hover{background:rgba(184,255,114,.08)}
+
+/* ROM Journal: full-screen vertical news feed */
+#pageView.romNewsFeedPage{padding-bottom:0!important;}
+#pageView.romNewsFeedPage .pageIntro{max-width:900px!important;margin:0 auto 8px!important;text-align:center;padding-top:8px;}
+#pageView.romNewsFeedPage .pageIntro h1{font-size:clamp(36px,5vw,66px);margin-bottom:8px;}
+#pageView.romNewsFeedPage .pageBody{width:100%;max-width:100%;}
+#pageView.romNewsFeedPage .romNewsFeed{display:block!important;width:100%;}
+#pageView.romNewsFeedPage .romNewsSlide{min-height:calc(100svh - 76px);display:flex;align-items:center;justify-content:center;scroll-snap-align:start;scroll-snap-stop:always;padding:40px 22px 80px;border:0;}
+#pageView.romNewsFeedPage .romNewsSlide+.romNewsSlide{border-top:1px solid rgba(180,255,100,.11);}
+#pageView.romNewsFeedPage .romNewsSlideInner{width:min(100%,760px);margin:auto;display:flex;flex-direction:column;align-items:stretch;gap:22px;}
+#pageView.romNewsFeedPage .romNewsSlideCover{width:100%;height:auto;max-height:min(48svh,510px);aspect-ratio:16/9;object-fit:contain;display:block;border-radius:16px;background:#0c100d;box-shadow:0 18px 65px rgba(0,0,0,.26);}
+#pageView.romNewsFeedPage .romNewsSlidePlaceholder{display:flex;align-items:center;justify-content:center;font-size:clamp(56px,11vw,125px);font-weight:900;letter-spacing:-.08em;color:#fff;}
+#pageView.romNewsFeedPage .romNewsSlidePlaceholder span{color:#b7ff65;}
+#pageView.romNewsFeedPage .romNewsSlideMeta{display:flex;justify-content:space-between;gap:20px;font-size:13px;font-weight:700;color:#a2b0a1;margin-bottom:12px;}
+#pageView.romNewsFeedPage .romNewsSlideCopy h2{font-size:clamp(30px,4vw,52px);line-height:1.09;letter-spacing:-.045em;margin:0 0 12px;font-weight:850;}
+#pageView.romNewsFeedPage .romNewsSlideText{font-size:clamp(16px,1.5vw,19px);line-height:1.65;color:#cbd3ca;overflow-wrap:anywhere;}
+@media(min-width:801px){html:has(#pageView.romNewsFeedPage:not(.hidden)){scroll-snap-type:y mandatory;scroll-padding-top:76px;scroll-behavior:smooth;}}
+@media(max-width:800px){html:has(#pageView.romNewsFeedPage:not(.hidden)){scroll-snap-type:y proximity;scroll-padding-top:65px;}#pageView.romNewsFeedPage .romNewsSlide{min-height:calc(100svh - 65px);padding:24px 8px 50px;}#pageView.romNewsFeedPage .romNewsSlideCover{max-height:42svh;}#pageView.romNewsFeedPage .romNewsSlideInner{gap:16px;}}
+@media(prefers-reduced-motion:reduce){html:has(#pageView.romNewsFeedPage:not(.hidden)){scroll-behavior:auto;}}
