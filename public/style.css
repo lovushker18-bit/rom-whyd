@@ -1913,5 +1913,9 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
     position: relative !important;
     left: -35px !important;
 }
+.romReviewIdentity strong span.artistBadge {
+    position: relative !important;
+    left: -10px !important;
+}
 =======
 >>>>>>> c8b1cbce9793d544fa0b8d0684360c4453ef7305
