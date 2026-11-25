@@ -314,6 +314,8 @@ function romPlay(btn){
 function romAudioInit(){
  document.querySelectorAll('.romPlayer').forEach(row=>{
   const a=row.querySelector('audio'),b=row.querySelector('.romPlay'),seek=row.querySelector('.romSeek'),vol=row.querySelector('.romVolume'),clock=row.querySelector('.romClock');
+  a.volume=0.25;
+  vol.value='25';
   a.addEventListener('play',()=>{b.textContent='❚❚';b.setAttribute('aria-label','Пауза');row.classList.add('is-playing','is-open')});
   a.addEventListener('pause',()=>{b.textContent='▶';b.setAttribute('aria-label','Воспроизвести');row.classList.remove('is-playing')});
   a.addEventListener('ended',()=>{b.textContent='▶';row.classList.remove('is-playing')});
@@ -321,6 +323,33 @@ function romAudioInit(){
   a.addEventListener('timeupdate',()=>{seek.value=a.duration?String(a.currentTime/a.duration*100):'0';clock.textContent=`${romTime(a.currentTime)} / ${romTime(a.duration)}`;seek.style.setProperty('--progress',`${seek.value}%`)});
   seek.addEventListener('input',()=>{if(a.duration)a.currentTime=Number(seek.value)/100*a.duration});
   vol.addEventListener('input',()=>a.volume=Number(vol.value)/100);
+  // Full-width pointer scrubbing: the entire visible slider, including its ends,
+  // responds to clicks and dragging, not just the browser's native thumb track.
+  function bindFullRange(input,update){
+   let dragging=false;
+   const setFromPointer=e=>{
+    const rect=input.getBoundingClientRect();
+    if(!rect.width)return;
+    const ratio=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+    input.value=String(ratio*100);
+    update(ratio);
+   };
+   input.addEventListener('pointerdown',e=>{
+    if(e.button!==0)return;
+    dragging=true;
+    input.setPointerCapture?.(e.pointerId);
+    setFromPointer(e);
+   });
+   input.addEventListener('pointermove',e=>{if(dragging)setFromPointer(e)});
+   const stop=()=>{dragging=false};
+   input.addEventListener('pointerup',stop);
+   input.addEventListener('pointercancel',stop);
+  }
+  bindFullRange(seek,ratio=>{
+   if(Number.isFinite(a.duration)&&a.duration>0)a.currentTime=ratio*a.duration;
+   seek.style.setProperty('--progress',`${ratio*100}%`);
+  });
+  bindFullRange(vol,ratio=>{a.volume=ratio});
  });
 }
 function romRatingColor(score){const n=Math.max(1,Math.min(90,Number(score)||1));const hue=Math.round((n-1)/89*120);return `hsl(${hue} 95% 53%)`}
@@ -389,7 +418,7 @@ async function openAlbum(id) {
     </div>
   </div>
   ${currentUser?`<form id="ratingComposer" class="romComposer hidden"><div class="romComposerHeading"><div><span class="eyebrow">ТВОЯ ОЦЕНКА</span><h3>Оценить ${escapeHtml(a.title)}</h3></div><button type="button" class="romClose" onclick="romOpenRating()" aria-label="Закрыть">✕</button></div><label>Оценка от 1 до 90<input name="rating" type="text" inputmode="numeric" pattern="(?:[1-9]|[1-8][0-9]|90)" maxlength="2" placeholder="Например, 75" required></label>${currentUser.email_verified?`<label>Заголовок рецензии <span class="romOptional">необязательно</span><input name="title" maxlength="150" placeholder="Что думаешь о релизе?"></label><label>Текст рецензии <span class="romOptional">необязательно</span><textarea name="body" rows="5" maxlength="10000" placeholder="Поделись впечатлениями или оставь только оценку"></textarea></label>`:`<p class="romRatingNotice">Без подтверждения почты можно поставить оценку. Для рецензии подтверди почту в настройках.</p>`}<button class="button" type="submit">Опубликовать оценку</button></form>`:''}
-  <section class="romSection"><div class="romSectionTitle"><h2>Треклист</h2><span>${data.tracks.length} тр.</span></div><div class="romTrackList">${data.tracks.length?data.tracks.map(t=>`<div class="romTrack"><span class="romTrackIndex">${Number(t.track_number)}</span><div class="romTrackTitle"><strong>${escapeHtml(t.title)}</strong>${t.featuring?`<small>feat. ${escapeHtml(t.featuring)}</small>`:''}</div>${t.audio_url?`<div class="romPlayer"><audio preload="metadata" src="${escapeAttr(t.audio_url)}"></audio><button type="button" class="romPlay" onclick="romPlay(this)" aria-label="Воспроизвести">▶</button><div class="romPlayerExpanded"><span class="romClock">0:00 / 0:00</span><input class="romSeek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Перемотка"><span class="romVolumeIcon">♫</span><input class="romVolume" type="range" min="0" max="100" value="100" aria-label="Громкость"></div></div>`:`<span class="romTrackMissing">Аудио недоступно</span>`}</div>`).join(''):'<p class="empty">Треков пока нет.</p>'}</div></section>
+  <section class="romSection"><div class="romSectionTitle"><h2>Треклист</h2><span>${data.tracks.length} тр.</span></div><div class="romTrackList">${data.tracks.length?data.tracks.map(t=>`<div class="romTrack"><span class="romTrackIndex">${Number(t.track_number)}</span><div class="romTrackTitle"><strong>${escapeHtml(t.title)}</strong>${t.featuring?`<small>feat. ${escapeHtml(t.featuring)}</small>`:''}</div>${t.audio_url?`<div class="romPlayer"><audio preload="metadata" src="${escapeAttr(t.audio_url)}"></audio><button type="button" class="romPlay" onclick="romPlay(this)" aria-label="Воспроизвести">▶</button><div class="romPlayerExpanded"><span class="romClock">0:00 / 0:00</span><input class="romSeek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Перемотка"><span class="romVolumeIcon">♫</span><input class="romVolume" type="range" min="0" max="100" value="25" aria-label="Громкость"></div></div>`:`<span class="romTrackMissing">Аудио недоступно</span>`}</div>`).join(''):'<p class="empty">Треков пока нет.</p>'}</div></section>
   <section class="romSection"><div class="romSectionTitle"><h2>Оценки и рецензии</h2><span>${reviews.length}</span></div><div class="romReviews">${reviews.length?reviews.map(r=>`<article class="romReview ${r.body?.trim()?'romTextReview':'romOnlyRating'}"><div class="romReviewUser"><button type="button" class="romReviewAvatar romProfileLink" onclick="openUserProfile(${Number(r.user_id)})" title="Профиль ${escapeAttr(r.username)}">${r.avatar_url?`<img src="${escapeAttr(r.avatar_url)}" alt="">`:escapeHtml(String(r.username||'?').slice(0,1).toUpperCase())}</button><div class="romReviewIdentity"><strong><button type="button" class="romUsernameLink" onclick="openUserProfile(${Number(r.user_id)})">${escapeHtml(r.username)}</button> ${r.is_artist?artistBadge():''}</strong><small>${new Date(r.created_at).toLocaleDateString('ru-RU')}</small></div><strong class="romReviewScore" style="color:${romRatingColor(Number(r.rating))}">${Number(r.rating).toFixed(0)}<small>/90</small></strong></div>${r.body?.trim()?`<div class="romReviewBody">${r.title?`<h3>${escapeHtml(r.title)}</h3>`:''}<p>${escapeHtml(r.body)}</p></div>`:''}</article>`).join(''):'<div class="romNoReviews">Пока никто не оценил этот релиз. Будь первым!</div>'}</div></section>`;
   romAudioInit();
   const composer=$('#ratingComposer');if(composer)composer.addEventListener('submit',async e=>{e.preventDefault();const btn=composer.querySelector('[type="submit"]');btn.disabled=true;try{const f=new FormData(composer);await api('/api/reviews',{method:'POST',body:JSON.stringify({album_id:id,rating:Number(f.get('rating')),title:String(f.get('title')||'').trim(),body:String(f.get('body')||'').trim()})});toast('Оценка опубликована!');await openAlbum(id);await loadAlbums()}catch(err){toast(err.message)}finally{btn.disabled=false}});
@@ -417,7 +446,7 @@ function escapeAttr(value) {
 
 function artistBadge(profile=false){
  const klass=profile?'romProfileArtistMark':'artistBadge';
- return `<span class="${klass}" title="Артист ROM" role="img" aria-label="Артист"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16 3.8v11.4a4.1 4.1 0 1 1-2.5-3.78V7.1L9 8.35v9.05a4.1 4.1 0 1 1-2.5-3.78V6.45L16 3.8Z"/></svg></span>`;
+ return `<span class="${klass}" title="Артист ROM" role="img" aria-label="Артист"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M9 5.8 20 3v12.3a3.4 3.4 0 0 1-2.6 3.3c-2.1.6-4.1-.4-4.1-2.1 0-1.5 1.2-2.5 3-3l1.2-.3V7.1l-6 1.5v9a3.4 3.4 0 0 1-2.6 3.3c-2.1.6-4.1-.4-4.1-2.1 0-1.5 1.2-2.5 3-3l1.2-.3V5.8Z"/></svg></span>`;
 }
 function toggleProfileMenu(event){event.stopPropagation();$('#profileMenu')?.classList.toggle('hidden')}
 function closeProfileMenu(){$('#profileMenu')?.classList.add('hidden')}

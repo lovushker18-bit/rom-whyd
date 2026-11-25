@@ -1806,3 +1806,40 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 #pageView.romNewsFeedPage .romNewsSlide:first-child .romNewsSlideInner{margin:0 auto!important;}
 #pageView.romNewsFeedPage .romNewsSlide+.romNewsSlide{min-height:calc(100svh - 76px);}
 @media(max-width:800px){#pageView.romNewsFeedPage .romNewsSlide:first-child{padding-top:16px!important;padding-bottom:42px!important;}}
+
+/* ROM player: continuous clickable slider areas */
+.romPlayer.is-open .romPlayerExpanded{min-width:0;flex:1 1 auto;overflow:visible!important}
+.romPlayer .romSeek,.romPlayer .romVolume{box-sizing:border-box;display:block;appearance:none;-webkit-appearance:none;height:24px;padding:0!important;border:0!important;background:transparent!important;cursor:pointer;touch-action:none;position:relative;z-index:5}
+.romPlayer .romSeek::-webkit-slider-runnable-track,.romPlayer .romVolume::-webkit-slider-runnable-track{height:5px;border-radius:99px;background:color-mix(in srgb,var(--rom-player-color,#b8ff6a) 35%,#424b44)}
+.romPlayer .romSeek::-moz-range-track,.romPlayer .romVolume::-moz-range-track{height:5px;border-radius:99px;background:#49554b}
+.romPlayer .romSeek::-webkit-slider-thumb,.romPlayer .romVolume::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;margin-top:-5px;background:var(--rom-player-color,#b8ff6a);border:0;box-shadow:0 0 0 3px rgba(0,0,0,.18)}
+.romPlayer .romSeek::-moz-range-thumb,.romPlayer .romVolume::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--rom-player-color,#b8ff6a);border:0}
+.romPlayer .romSeek{flex:1 1 140px;min-width:65px}
+.romPlayer .romVolume{flex:0 0 80px;width:80px}
+@media(max-width:740px){.romPlayer .romVolume{flex-basis:54px;width:54px}}
+
+/* ROM artist mark — clean green SVG note, no badge background */
+.romProfileIntro h1 .romProfileArtistMark,
+.romProfileArtistMark,
+.artistBadge,
+.romReviewIdentity strong .artistBadge,
+.menuUsername .artistBadge {
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  position:static!important;top:auto!important;transform:none!important;
+  box-sizing:border-box!important;vertical-align:-.12em!important;
+  width:19px!important;height:19px!important;min-width:19px!important;min-height:19px!important;
+  max-width:19px!important;max-height:19px!important;flex:0 0 19px!important;
+  margin:0 0 0 5px!important;padding:0!important;border:0!important;
+  background:transparent!important;color:#b8ff6a!important;
+  border-radius:0!important;box-shadow:none!important;line-height:1!important;
+}
+.romProfileIntro h1 .romProfileArtistMark {
+  width:27px!important;height:27px!important;min-width:27px!important;min-height:27px!important;
+  max-width:27px!important;max-height:27px!important;flex-basis:27px!important;
+  margin-left:9px!important;vertical-align:-.08em!important;
+}
+.romProfileArtistMark svg,.artistBadge svg,.romProfileIntro h1 .romProfileArtistMark svg {
+  display:block!important;width:100%!important;height:100%!important;max-width:100%!important;
+  max-height:100%!important;min-width:0!important;min-height:0!important;
+  flex:0 0 auto!important;fill:currentColor!important;overflow:visible!important;
+}
