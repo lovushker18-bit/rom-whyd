@@ -1325,3 +1325,45 @@ body:not(.romGridActive) #romGridCanvas{display:none}
 /* Profile header sits closer to navigation, without the old dead space. */
 #pageView:has(.romProfilePage){padding-top:24px!important}
 #pageView:has(.romProfilePage) .romProfilePage{padding-top:0!important}
+
+/* ROM v18 — black light-sensitive grid, RGB picker, exact badge alignment */
+html,body{background:#050605!important}
+body{background-image:none!important}
+body::before{display:none!important}
+body.romGridActive .homeView,body.romGridActive .pageView,body.romGridActive .releasePage{background:transparent!important;background-image:none!important}
+#romGridCanvas{display:block!important;position:fixed!important;inset:0!important;z-index:0!important;width:100vw!important;height:100vh!important;pointer-events:none!important;opacity:0!important;transition:none!important}
+body.romGridActive #romGridCanvas{opacity:1!important}
+.topbar,.homeView,.pageView,.releasePage{position:relative;z-index:1}
+.topbar{position:sticky;z-index:20;background:#080a08ed}
+.romProfilePage::before,.releasePage::before{display:none!important;content:none!important}
+#pageView:has(.romProfilePage){padding-top:58px!important}
+#pageView:has(.romProfilePage) .romProfilePage{padding-top:16px!important}
+.romProfileTop{padding-top:22px!important;margin-top:0!important;margin-bottom:36px!important}
+.romProfileIntro h1{display:flex!important;align-items:center!important;gap:9px!important;line-height:1.16!important}
+.artistBadge,.romProfileIntro h1 .artistBadge{display:inline-flex!important;align-items:center!important;justify-content:center!important;vertical-align:middle!important;position:static!important;top:auto!important;transform:none!important;flex:0 0 19px!important;width:19px!important;min-width:19px!important;height:19px!important;max-height:19px!important;margin:0 0 0 4px!important;padding:0!important;border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;color:inherit!important;line-height:1!important}
+.artistBadge svg,.romProfileIntro h1 .artistBadge svg{display:block!important;flex:none!important;width:19px!important;max-width:19px!important;height:19px!important;max-height:19px!important;overflow:visible!important}
+.romProfileIntro h1 .artistBadge{flex-basis:25px!important;width:25px!important;min-width:25px!important;height:25px!important;max-height:25px!important}
+.romProfileIntro h1 .artistBadge svg{width:25px!important;max-width:25px!important;height:25px!important;max-height:25px!important}
+.romReview{padding:27px 31px!important}
+.romReviewUser{display:grid!important;grid-template-columns:50px minmax(0,1fr) auto!important;column-gap:15px!important;align-items:center!important;min-height:50px!important}
+.romReviewAvatar{display:flex!important;align-items:center!important;justify-content:center!important;width:50px!important;height:50px!important;min-width:50px!important;min-height:50px!important;border-radius:50%!important;padding:0!important;margin:0!important;overflow:hidden!important;align-self:center!important;justify-self:center!important}
+.romReviewAvatar img{display:block!important;width:100%!important;height:100%!important;object-fit:cover!important;border-radius:50%!important}
+.romReviewIdentity{justify-content:center!important;align-self:center!important;gap:2px!important;line-height:1.3!important}
+.romReviewIdentity strong{display:flex!important;align-items:center!important;gap:5px!important;min-height:22px!important}
+.romReviewScore{align-self:center!important}
+.romReviewBody{margin-left:65px!important;margin-top:15px!important}
+.romReviewBody h3{font-size:22px!important}
+.romReviewBody p{font-size:17px!important}
+@media(max-width:650px){#pageView:has(.romProfilePage){padding-top:32px!important}.romProfileTop{padding-top:10px!important;margin-bottom:22px!important}.romReview{padding:20px!important}.romReviewBody{margin-left:0!important}}
+.romRgbEditor{min-width:0;border:1px solid #344335;border-radius:15px;padding:18px 19px 20px;margin:0;background:#0c110d}
+.romRgbEditor legend{padding:0 8px;font-size:15px;font-weight:800;color:#eef8ea}
+.romRgbDescription{font-size:13px;color:#a2b1a2;line-height:1.55;margin:2px 0 14px}
+.romRgbPreview{display:flex;align-items:center;gap:12px;margin:7px 0 17px}
+.romRgbSwatch{height:35px;width:58px;border-radius:9px;border:1px solid #ffffff39;box-shadow:0 0 24px #ffffff0c}
+.romRgbCode{font-size:15px;color:#e5f1e3;font-weight:800;letter-spacing:.07em}
+.romRgbHex{margin-left:auto;flex:0 0 46px!important;width:46px!important;height:36px!important;padding:2px!important;border:0!important;cursor:pointer;background:transparent!important}
+.romRgbChannel{display:grid!important;grid-template-columns:22px minmax(0,1fr) 32px!important;gap:14px!important;align-items:center!important;margin:10px 0!important;flex-direction:row!important}
+.romRgbChannel>span{font-size:14px;font-weight:850;color:#cedccc}
+.romRgbChannel input[type=range]{width:100%!important;height:24px!important;padding:0!important;margin:0!important;cursor:pointer;accent-color:#a8ff74}
+.romRgbChannel output{text-align:right;font-size:13px;color:#aebbae;font-variant-numeric:tabular-nums}
+@media(prefers-reduced-motion:reduce){#romGridCanvas{transition:none!important}}

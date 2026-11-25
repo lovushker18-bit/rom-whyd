@@ -1,36 +1,40 @@
-/* Decorative canvas, no pointer interception, no user tracking. */
+/* ROM interactive ambient grid. Decorative only, behind UI; never receives pointer events. */
 (()=>{'use strict';
  const canvas=document.getElementById('romGridCanvas');if(!canvas)return;
  const ctx=canvas.getContext('2d',{alpha:true});if(!ctx)return;
- const reduced=matchMedia('(prefers-reduced-motion: reduce)');
- let width=0,height=0,dpr=1,frame=0,raf=0,visible=true;
- const pointer={x:-10000,y:-10000,tx:-10000,ty:-10000};
- function resize(){dpr=Math.min(devicePixelRatio||1,1.5);width=innerWidth;height=innerHeight;canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
- function draw(){
-  raf=0;if(!visible||!document.body.classList.contains('romGridActive'))return;
-  ctx.clearRect(0,0,width,height);
-  pointer.x+=(pointer.tx-pointer.x)*.065;pointer.y+=(pointer.ty-pointer.y)*.065;
-  const spacing=58,ox=(frame*.07)%spacing,oy=(frame*.045)%spacing;
-  const active=pointer.x>-1000;
-  for(let x=ox-spacing;x<width+spacing;x+=spacing){
-   for(let y=oy-spacing;y<height+spacing;y+=spacing){
-    const dist=active?Math.hypot(x-pointer.x,y-pointer.y):9999;
-    const influence=Math.max(0,1-dist/220);
-    const alpha=.042+influence*.23;
-    ctx.fillStyle=`rgba(161,240,124,${alpha})`;
-    ctx.beginPath();ctx.arc(x,y,1+influence*1.4,0,Math.PI*2);ctx.fill();
-    if(influence>.13){ctx.strokeStyle=`rgba(129,228,104,${influence*.085})`;ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+spacing,y);ctx.moveTo(x,y);ctx.lineTo(x,y+spacing);ctx.stroke()}
-   }
-  }
-  if(active){const glow=ctx.createRadialGradient(pointer.x,pointer.y,0,pointer.x,pointer.y,240);glow.addColorStop(0,'rgba(111,206,91,.065)');glow.addColorStop(1,'rgba(111,206,91,0)');ctx.fillStyle=glow;ctx.fillRect(pointer.x-240,pointer.y-240,480,480)}
-  if(!reduced.matches){frame++;raf=requestAnimationFrame(draw)}
+ const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
+ const pointer={x:-9999,y:-9999,targetX:-9999,targetY:-9999,inside:false};
+ let w=0,h=0,dpr=1,frame=0,raf=0,rgb=[139,255,114],lastColor='';
+ const clamp=v=>Math.max(0,Math.min(255,v|0));
+ function color(){const raw=getComputedStyle(document.body).getPropertyValue('--rom-grid-color').trim();if(raw===lastColor)return;lastColor=raw;const m=/^#([a-f\d]{6})$/i.exec(raw);rgb=m?[0,2,4].map(i=>parseInt(m[1].slice(i,i+2),16)):[139,255,114]}
+ const rgba=(a)=>`rgba(${rgb.map(clamp).join(',')},${a})`;
+ function resize(){dpr=Math.min(devicePixelRatio||1,1.6);w=innerWidth;h=innerHeight;canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);request()}
+ function enabled(){return document.body.classList.contains('romGridActive')&&!document.hidden}
+ function render(){raf=0;ctx.clearRect(0,0,w,h);if(!enabled()||!pointer.inside)return;
+ color();
+ if(pointer.x<0){pointer.x=pointer.targetX;pointer.y=pointer.targetY}
+ const easing=reduced.matches?1:.2;
+ pointer.x+=(pointer.targetX-pointer.x)*easing;pointer.y+=(pointer.targetY-pointer.y)*easing;
+ const x=pointer.x,y=pointer.y,radius=260,step=42;
+ const glow=ctx.createRadialGradient(x,y,0,x,y,radius);
+ glow.addColorStop(0,rgba(.095));glow.addColorStop(.35,rgba(.045));glow.addColorStop(1,rgba(0));
+ ctx.fillStyle=glow;ctx.fillRect(x-radius,y-radius,radius*2,radius*2);
+ const left=Math.floor((x-radius)/step)*step,right=Math.ceil((x+radius)/step)*step;
+ const top=Math.floor((y-radius)/step)*step,bottom=Math.ceil((y+radius)/step)*step;
+ ctx.lineWidth=.7;
+ for(let gx=left;gx<=right;gx+=step){for(let gy=top;gy<=bottom;gy+=step){
+  const dist=Math.hypot(gx-x,gy-y);if(dist>=radius)continue;
+  const t=Math.pow(1-dist/radius,1.6);
+  ctx.strokeStyle=rgba(t*.19);ctx.beginPath();ctx.moveTo(gx,gy);ctx.lineTo(gx+step,gy);ctx.moveTo(gx,gy);ctx.lineTo(gx,gy+step);ctx.stroke();
+  ctx.fillStyle=rgba(.12+t*.62);ctx.beginPath();ctx.arc(gx,gy,.7+t*1.05,0,Math.PI*2);ctx.fill();
+ }}
+ if(!reduced.matches&&(Math.abs(pointer.x-pointer.targetX)>.35||Math.abs(pointer.y-pointer.targetY)>.35))request();
  }
- function tick(){if(!raf)raf=requestAnimationFrame(draw)}
- addEventListener('pointermove',e=>{pointer.tx=e.clientX;pointer.ty=e.clientY;if(reduced.matches)tick()},{passive:true});
- document.addEventListener('pointerleave',()=>{pointer.tx=-10000;pointer.ty=-10000});
- document.addEventListener('visibilitychange',()=>{visible=!document.hidden;if(visible)tick()});
- addEventListener('resize',()=>{resize();tick()},{passive:true});
- const observer=new MutationObserver(()=>{if(document.body.classList.contains('romGridActive'))tick();else ctx.clearRect(0,0,width,height)});
- observer.observe(document.body,{attributes:true,attributeFilter:['class']});
- resize();tick();
+ function request(){if(!raf)raf=requestAnimationFrame(render)}
+ addEventListener('pointermove',e=>{if(e.pointerType==='touch')return;pointer.targetX=e.clientX;pointer.targetY=e.clientY;pointer.inside=true;request()},{passive:true});
+ document.addEventListener('pointerleave',()=>{pointer.inside=false;request()});
+ document.addEventListener('visibilitychange',request);
+ addEventListener('resize',resize,{passive:true});
+ const observer=new MutationObserver(request);observer.observe(document.body,{attributes:true,attributeFilter:['class','style']});
+ resize();
 })();
