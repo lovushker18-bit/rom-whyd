@@ -12,7 +12,7 @@ const sha=s=>createHash('sha256').update(s).digest('hex');
 const cookie=(value,age)=>`rom_session=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${age}`;
 function cookies(req){return Object.fromEntries((req.headers.cookie||'').split(';').map(s=>s.trim().split('=').slice(0,2)).filter(x=>x.length===2));}
 const send=(res,status,data)=>res.status(status).json(data);
-const safe=u=>u&&({id:u.id,username:u.username,email:u.email,bio:u.bio,avatar_url:u.avatar_url,email_verified:u.email_verified,is_verified:u.is_verified,is_admin:u.is_admin,is_artist:u.is_artist,background_theme:u.background_theme,background_color:u.background_color});
+const safe=u=>u&&({id:u.id,public_id:u.public_id,username:u.username,email:u.email,bio:u.bio,avatar_url:u.avatar_url,email_verified:u.email_verified,is_verified:u.is_verified,is_admin:u.is_admin,is_artist:u.is_artist,background_theme:u.background_theme,background_color:u.background_color});
 async function me(req){const t=cookies(req).rom_session;if(!t)return null;const r=await q(`SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=$1 AND s.expires_at>NOW()`,[sha(t)]);return r.rows[0]||null;}
 async function session(res,user){const t=token();await q(`INSERT INTO sessions(id,user_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '30 days')`,[sha(t),user.id]);res.setHeader('Set-Cookie',cookie(t,2592000));}
 async function sendVerification(user){
@@ -105,8 +105,43 @@ if(activity&&method==='GET'){
 }
 if(path==='/api/admin/pending-count'&&method==='GET'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
- const r=await q("SELECT COUNT(*)::int AS count FROM track_submissions WHERE status='pending'");
- return send(res,200,{count:r.rows[0].count});
+ const r=await q("SELECT (SELECT COUNT(*) FROM track_submissions WHERE status='pending') + (SELECT COUNT(*) FROM username_change_requests WHERE status='pending') AS count");
+ return send(res,200,{count:Number(r.rows[0].count)});
+}
+if(path==='/api/username-request'&&method==='GET'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ const r=await q('SELECT id,requested_username,status,created_at,reviewed_at FROM username_change_requests WHERE user_id=$1 ORDER BY created_at DESC LIMIT 5',[u.id]);
+ return send(res,200,{requests:r.rows});
+}
+if(path==='/api/username-request'&&method==='POST'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ if(!u.email_verified)return send(res,403,{error:'Сначала подтверди почту.'});
+ const name=String(b.username||'').trim();
+ if(!/^[\p{L}\p{N}_-]{3,24}$/u.test(name))return send(res,400,{error:'Ник должен содержать 3–24 буквы, цифры, _ или -.'});
+ if(name.toLowerCase()===u.username.toLowerCase())return send(res,400,{error:'Это уже твой ник.'});
+ const found=await q('SELECT 1 FROM users WHERE LOWER(username)=LOWER($1)',[name]);
+ if(found.rowCount)return send(res,409,{error:'Этот ник уже занят.'});
+ try{const r=await q('INSERT INTO username_change_requests(user_id,requested_username) VALUES($1,$2) RETURNING id,status',[u.id,name]);return send(res,201,{request:r.rows[0]});}
+ catch(e){if(e.code==='23505')return send(res,409,{error:'У тебя уже есть ожидающая заявка.'});throw e}
+}
+if(path==='/api/admin/username-requests'&&method==='GET'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const r=await q(`SELECT r.id,r.user_id,r.requested_username,r.status,r.created_at,r.reviewed_at,u.username AS current_username,u.public_id FROM username_change_requests r JOIN users u ON u.id=r.user_id ORDER BY (r.status='pending') DESC,r.created_at DESC LIMIT 100`);
+ return send(res,200,{requests:r.rows});
+}
+const nameRequest=path.match(/^\/api\/admin\/username-requests\/(\d+)$/);
+if(nameRequest&&method==='PATCH'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ if(!['approved','rejected'].includes(b.status))return send(res,400,{error:'Укажи решение: approved или rejected.'});
+ const client=await db().connect();try{
+  await client.query('BEGIN');
+  const r=await client.query("SELECT * FROM username_change_requests WHERE id=$1 FOR UPDATE",[nameRequest[1]]);
+  if(!r.rowCount){await client.query('ROLLBACK');return send(res,404,{error:'Заявка не найдена.'})}
+  if(r.rows[0].status!=='pending'){await client.query('ROLLBACK');return send(res,409,{error:'Заявка уже обработана.'})}
+  if(b.status==='approved')await client.query('UPDATE users SET username=$1 WHERE id=$2',[r.rows[0].requested_username,r.rows[0].user_id]);
+  await client.query('UPDATE username_change_requests SET status=$1,reviewed_by=$2,reviewed_at=NOW() WHERE id=$3',[b.status,u.id,nameRequest[1]]);
+  await client.query('COMMIT');return send(res,200,{ok:true});
+ }catch(e){await client.query('ROLLBACK');if(e.code==='23505')return send(res,409,{error:'Этот ник уже занят другим пользователем.'});throw e}finally{client.release()}
 }
 if(path==='/api/submissions'&&method==='POST'){
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
@@ -129,26 +164,52 @@ if(path==='/api/submissions'&&method==='GET'){
 const submission=path.match(/^\/api\/submissions\/(\d+)$/);
 if(submission&&method==='PATCH'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
- if(!['approved','rejected','pending'].includes(b.status))return send(res,400,{error:'Некорректный статус.'});
- const r=await q('UPDATE track_submissions SET status=$1,reviewed_at=NOW(),reviewed_by=$2 WHERE id=$3 RETURNING id,status',[b.status,u.id,submission[1]]);return r.rowCount?send(res,200,r.rows[0]):send(res,404,{error:'Заявка не найдена.'});
+ if(!['approved','rejected'].includes(b.status))return send(res,400,{error:'Некорректный статус.'});
+ const client=await db().connect();try{
+  await client.query('BEGIN');
+  const check=await client.query('SELECT * FROM track_submissions WHERE id=$1 FOR UPDATE',[submission[1]]);
+  if(!check.rowCount){await client.query('ROLLBACK');return send(res,404,{error:'Заявка не найдена.'})}
+  const t=check.rows[0];
+  if(t.published_album_id){await client.query('ROLLBACK');return send(res,409,{error:'Эта заявка уже опубликована.'})}
+  if(t.status==='rejected'){await client.query('ROLLBACK');return send(res,409,{error:'Отклонённую заявку нельзя опубликовать. Попроси отправить её заново.'})}
+  if(b.status==='rejected'){
+   if(t.status!=='pending'){await client.query('ROLLBACK');return send(res,409,{error:'Можно отклонять только ожидающие заявки.'})}
+   await client.query("UPDATE track_submissions SET status='rejected',reviewed_at=NOW(),reviewed_by=$1 WHERE id=$2",[u.id,submission[1]]);
+   await client.query('COMMIT');return send(res,200,{id:t.id,status:'rejected'});
+  }
+  // Publish atomically; a row lock prevents duplicate albums on concurrent approvals.
+  const tracks=Array.isArray(t.tracks_json)&&t.tracks_json.length?t.tracks_json:[{title:t.title,featuring:t.featuring||'',audio_url:t.audio_url}];
+  if(tracks.length<1||tracks.length>30)throw Error('В заявке неверное количество треков.');
+  for(const track of tracks)if(!String(track.title||'').trim()||!/^https:\/\/[^\s]+$/i.test(String(track.audio_url||'')))throw Error('В заявке отсутствует название или аудио трека.');
+  const kind=['single','multi_single','ep','album'].includes(t.release_type)?t.release_type:'single';
+  const actualKind=kind==='single'&&tracks.length===2?'multi_single':kind;
+  if(actualKind==='single'&&tracks.length!==1||actualKind==='multi_single'&&tracks.length!==2)throw Error('Тип релиза не соответствует числу треков.');
+  const ar=await client.query('INSERT INTO artists(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id',[t.artist_name]);
+  const album=await client.query(`INSERT INTO albums(artist_id,title,cover_url,release_date,description,featuring,audio_url,release_type,background_color)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,[ar.rows[0].id,t.title,t.cover_url||'',t.release_date||'',t.description||'',t.featuring||'',tracks[0].audio_url,actualKind,t.background_color||'#8bff72']);
+  const albumId=album.rows[0].id;
+  for(let i=0;i<tracks.length;i++)await client.query('INSERT INTO tracks(album_id,title,track_number,featuring,audio_url) VALUES($1,$2,$3,$4,$5)',[albumId,String(tracks[i].title).trim(),i+1,String(tracks[i].featuring||''),String(tracks[i].audio_url)]);
+  await client.query("UPDATE track_submissions SET status='approved',reviewed_at=NOW(),reviewed_by=$1,published_album_id=$2 WHERE id=$3",[u.id,albumId,submission[1]]);
+  await client.query('COMMIT');return send(res,200,{id:t.id,status:'approved',album_id:albumId});
+ }catch(e){await client.query('ROLLBACK');console.error('Publish submission failed',e);return send(res,400,{error:'Публикация не удалась: '+e.message})}finally{client.release()}
 }
 if(path==='/api/admin/users'&&method==='GET'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
- const r=await q('SELECT id,username,email,email_verified,is_artist,is_admin,created_at FROM users ORDER BY created_at DESC LIMIT 100');return send(res,200,{users:r.rows});
+ const r=await q('SELECT id,public_id,username,email,email_verified,is_artist,is_admin,created_at FROM users ORDER BY created_at DESC LIMIT 100');return send(res,200,{users:r.rows});
 }
-const adminUser=path.match(/^\/api\/admin\/users\/(\d+)\/artist$/);
+const adminUser=path.match(/^\/api\/admin\/users\/(\d{6})\/artist$/);
 if(adminUser&&method==='PATCH'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
  if(typeof b.is_artist!=='boolean')return send(res,400,{error:'Укажи is_artist.'});
- const r=await q('UPDATE users SET is_artist=$1 WHERE id=$2 RETURNING id,username,is_artist',[b.is_artist,adminUser[1]]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Пользователь не найден.'});
+ const r=await q('UPDATE users SET is_artist=$1 WHERE public_id=$2 RETURNING id,public_id,username,is_artist',[b.is_artist,adminUser[1]]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Пользователь не найден.'});
 }
 // Administration: moderator actions are always validated server-side.
-const adminVerify=path.match(/^\/api\/admin\/users\/([^/]+)\/verification$/);
+const adminVerify=path.match(/^\/api\/admin\/users\/(\d{6})\/verification$/);
 if(adminVerify&&method==='PATCH'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
- const username=decodeURIComponent(adminVerify[1]);if(typeof b.is_verified!=='boolean')return send(res,400,{error:'Укажи статус верификации.'});
- const r=await q('UPDATE users SET is_verified=$1 WHERE LOWER(username)=LOWER($2) RETURNING id,username,is_verified',[b.is_verified,username]);
- return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Пользователь с таким ником не найден.'});
+ if(typeof b.is_verified!=='boolean')return send(res,400,{error:'Укажи статус верификации.'});
+ const r=await q('UPDATE users SET is_verified=$1 WHERE public_id=$2 RETURNING id,public_id,username,is_verified',[b.is_verified,adminVerify[1]]);
+ return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Пользователь с таким ID не найден.'});
 }
 const adminReview=path.match(/^\/api\/admin\/reviews\/(\d+)$/);
 if(adminReview&&method==='DELETE'){
@@ -176,8 +237,8 @@ if(path==='/api/admin/reviews'&&method==='GET'){
 }
 if(path==='/api/admin/users/by-id'&&method==='POST'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
- const id=String(b.id||'').trim();if(!/^\d{1,18}$/.test(id))return send(res,400,{error:'Введите числовой ID пользователя.'});
- const r=await q('SELECT id,username,is_artist,email_verified FROM users WHERE id=$1',[id]);
+ const id=String(b.id||'').trim();if(!/^\d{6}$/.test(id))return send(res,400,{error:'Введи шестизначный ID пользователя.'});
+ const r=await q('SELECT id,public_id,username,is_artist,is_verified,email_verified FROM users WHERE public_id=$1',[id]);
  return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Аккаунт с таким ID не найден.'});
 }
 const adminAlbumDelete=path.match(/^\/api\/admin\/albums\/(\d+)$/);

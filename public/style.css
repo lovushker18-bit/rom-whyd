@@ -1737,3 +1737,12 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romAdminReviewRow{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 0;border-bottom:1px solid #344035}.romAdminReviewRow>div:first-child{min-width:0}.romAdminReviewRow p{color:#aab7a5;margin:8px 0 0}.romAdminRowControls{display:flex;gap:7px}
 .romArtistFound{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px;border:1px solid #344834;border-radius:13px}.romArtistFound small{color:#aabca9}
 @media(max-width:650px){.romAdminReviewRow{flex-direction:column;align-items:flex-start}.romAdminDashboardGrid{grid-template-columns:1fr}.romProfileIntro h1 .romProfileArtistMark{width:28px!important;height:28px!important;min-width:28px!important}}
+
+/* ROM v26 */
+.romRenameSection{margin-top:20px;max-width:840px}
+.romRenameSection h2{margin-bottom:8px}
+.romRenameSection .form{margin:15px 0}
+#romUsernameRequestHistory p{padding:9px 0;border-top:1px solid rgba(180,255,120,.1);margin:0}
+.romAdminReviewRow{display:flex;justify-content:space-between;gap:20px;align-items:center}
+.romAdminRowControls{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:700px){.romAdminReviewRow{flex-direction:column;align-items:stretch}}
