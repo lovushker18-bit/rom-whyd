@@ -279,6 +279,13 @@ function romAudioInit(){
   vol.addEventListener('input',()=>a.volume=Number(vol.value)/100);
  });
 }
+function romReleaseDate(value){
+ if(!value)return 'Не указана';
+ const raw=String(value).trim(),m=raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+ if(m)return `${m[3]}.${m[2]}.${m[1]}`;
+ const d=new Date(raw);
+ return Number.isNaN(d.getTime())?raw:d.toLocaleDateString('ru-RU');
+}
 function romOpenRating(){const composer=document.querySelector('#ratingComposer');if(composer){composer.classList.toggle('hidden');if(!composer.classList.contains('hidden'))composer.querySelector('[name="rating"]').focus()}}
 async function openAlbum(id) {
  try {
@@ -286,7 +293,24 @@ async function openAlbum(id) {
   const average=a.average_rating==null?'—':Number(a.average_rating).toFixed(1).replace(/\.0$/,'');
   const reviews=(data.reviews||[]).sort((x,y)=>Number(Boolean(y.body?.trim()))-Number(Boolean(x.body?.trim()))||new Date(y.created_at)-new Date(x.created_at));
   $('#releaseContent').innerHTML=`
-  <div class="romReleaseHero"><div class="romReleaseCover">${a.cover_url?`<img src="${escapeAttr(a.cover_url)}" alt="Обложка ${escapeAttr(a.title)}">`:'<span>ROM</span>'}</div><div class="romReleaseMeta"><p class="eyebrow">${escapeHtml(a.artist_name)} · ${({single:'Сингл',multi_single:'Мульти-сингл',ep:'EP',album:'Альбом'})[a.release_type]||'Релиз'}</p><h1>${escapeHtml(a.title)}</h1><div class="romScoreLine"><strong>${average}<small>/90</small></strong><span>${Number(a.rating_count||0)} оценок</span></div>${currentUser?.email_verified?`<button class="button romRateButton" onclick="romOpenRating()">✎ Оценить релиз</button>`:currentUser?`<button class="button secondary" onclick="showSettings()">Подтверди почту для оценки</button>`:`<button class="button" onclick="openAuth()">Войти, чтобы оценить</button>`}</div></div>
+  <div class="romReleaseHeading"><div class="romReleaseHeadingArtist">${escapeHtml(a.artist_name)}</div><h1>${escapeHtml(a.title)}</h1></div>
+  <div class="romReleaseHero">
+    <div class="romReleaseCover">${a.cover_url?`<img src="${escapeAttr(a.cover_url)}" alt="Обложка ${escapeAttr(a.title)}">`:'<span>ROM</span>'}</div>
+    <div class="romReleaseSidebar">
+      <div class="romOverviewPanel">
+        <div class="romOverviewBlock romOverviewRating">
+          <span class="romOverviewLabel">ОЦЕНКА ПОЛЬЗОВАТЕЛЕЙ</span>
+          <div class="romOverviewRatingRow"><strong>${average}</strong><div class="romOverviewRatingDetails"><span>из 90 баллов</span><span>${Number(a.rating_count||0)} оценок</span></div></div>
+          <div class="romOverviewMeter"><span style="width:${a.average_rating==null?0:Math.max(0,Math.min(100,Number(a.average_rating)/90*100))}%"></span></div>
+        </div>
+        <div class="romOverviewBlock romOverviewFacts">
+          <span class="romOverviewLabel">ИНФОРМАЦИЯ О РЕЛИЗЕ</span>
+          <dl><div><dt>Тип релиза</dt><dd>${({single:'Сингл',multi_single:'Мульти-сингл',ep:'EP',album:'Альбом'})[a.release_type]||'Релиз'}</dd></div><div><dt>Дата релиза</dt><dd>${escapeHtml(romReleaseDate(a.release_date))}</dd></div></dl>
+        </div>
+      </div>
+      <div class="romOverviewAction">${currentUser?.email_verified?`<button class="button romRateButton" onclick="romOpenRating()">✎ Оценить релиз</button>`:currentUser?`<button class="button secondary" onclick="showSettings()">Подтверди почту для оценки</button>`:`<button class="button" onclick="openAuth()">Войти, чтобы оценить</button>`}</div>
+    </div>
+  </div>
   ${currentUser?.email_verified?`<form id="ratingComposer" class="romComposer hidden"><div class="romComposerHeading"><div><span class="eyebrow">ТВОЯ ОЦЕНКА</span><h3>Оценить ${escapeHtml(a.title)}</h3></div><button type="button" class="romClose" onclick="romOpenRating()" aria-label="Закрыть">✕</button></div><label>Оценка от 1 до 90<input name="rating" type="number" min="1" max="90" step="1" inputmode="numeric" placeholder="Например, 75" required></label><label>Заголовок рецензии <span class="romOptional">необязательно</span><input name="title" maxlength="150" placeholder="Что думаешь о релизе?"></label><label>Текст рецензии <span class="romOptional">необязательно</span><textarea name="body" rows="5" maxlength="10000" placeholder="Поделись впечатлениями или оставь только оценку"></textarea></label><button class="button" type="submit">Опубликовать оценку</button></form>`:''}
   <section class="romSection"><div class="romSectionTitle"><h2>Треклист</h2><span>${data.tracks.length} тр.</span></div><div class="romTrackList">${data.tracks.length?data.tracks.map(t=>`<div class="romTrack"><span class="romTrackIndex">${Number(t.track_number)}</span><div class="romTrackTitle"><strong>${escapeHtml(t.title)}</strong>${t.featuring?`<small>feat. ${escapeHtml(t.featuring)}</small>`:''}</div>${t.audio_url?`<div class="romPlayer"><audio preload="metadata" src="${escapeAttr(t.audio_url)}"></audio><button type="button" class="romPlay" onclick="romPlay(this)" aria-label="Воспроизвести">▶</button><div class="romPlayerExpanded"><span class="romClock">0:00 / 0:00</span><input class="romSeek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Перемотка"><span class="romVolumeIcon">♫</span><input class="romVolume" type="range" min="0" max="100" value="100" aria-label="Громкость"></div></div>`:`<span class="romTrackMissing">Аудио недоступно</span>`}</div>`).join(''):'<p class="empty">Треков пока нет.</p>'}</div></section>
   <section class="romSection"><div class="romSectionTitle"><h2>Оценки и рецензии</h2><span>${reviews.length}</span></div><div class="romReviews">${reviews.length?reviews.map(r=>`<article class="romReview ${r.body?.trim()?'romTextReview':'romOnlyRating'}"><div class="romReviewUser"><div class="romReviewAvatar">${r.avatar_url?`<img src="${escapeAttr(r.avatar_url)}" alt="">`:escapeHtml(String(r.username||'?').slice(0,1).toUpperCase())}</div><div class="romReviewIdentity"><strong>@${escapeHtml(r.username)} ${r.is_artist?artistBadge():''}</strong><small>${new Date(r.created_at).toLocaleDateString('ru-RU')}</small></div><strong class="romReviewScore">${Number(r.rating).toFixed(0)}<small>/90</small></strong></div>${r.body?.trim()?`<div class="romReviewBody">${r.title?`<h3>${escapeHtml(r.title)}</h3>`:''}<p>${escapeHtml(r.body)}</p></div>`:''}</article>`).join(''):'<div class="romNoReviews">Пока никто не оценил этот релиз. Будь первым!</div>'}</div></section>`;
