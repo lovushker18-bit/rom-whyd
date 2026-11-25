@@ -110,3 +110,11 @@ UPDATE users SET is_admin = TRUE WHERE username = 'ТВОЙ_НИК';
 - Добавлена защита от устаревших запросов API при переключении между новостями, каталогами, релизами и профилями. Открытие ссылок `/#album-ID` и `/#news` после обновления страницы поддерживается.
 
 SQL-миграции и новые переменные среды НЕ нужны.
+
+## ROM Studio v23 — Layout repair
+
+- Fixed the catalog, news and about pages expanding to the full viewport. Public catalog pages use a centered 1180px max-width again; cards use a responsive 4/3/2 column grid.
+- Prevented a green 1px seam at the bottom of the viewport by clipping the grid canvas and covering the final two pixels of its compositing layer.
+- Database schema, APIs, authentication, audio uploads, and profiles are unchanged.
+
+Deploy: replace the repository files with this archive and let Vercel build. No Neon migration is necessary.

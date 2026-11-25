@@ -1616,7 +1616,8 @@ body.romGridActive #romGridCanvas{opacity:1!important}
 .romProfileActionsSwitch input:focus-visible+.romSwitchTrack{outline:2px solid #b8ff6a;outline-offset:3px}
 /* Prevent the stray one-pixel bottom and horizontal overflow on profiles. */
 html,body{max-width:100%;overflow-x:clip}
-#pageView,.romProfilePage,#releasePage{max-width:100%;min-width:0}
+/* Keep the catalog centered: do not replace .pageView max-width with 100%. */
+.romProfilePage,#releasePage{min-width:0;max-width:100%}
 #romGridCanvas{max-width:100%!important;max-height:100%!important;overflow:hidden!important;outline:0!important;border:0!important}
 .romProfilePage::after,#pageView::after{border:0!important}
 @media(max-width:650px){
@@ -1672,3 +1673,34 @@ html,body{max-width:100%;overflow-x:clip}
 #releaseContent{width:100%;min-width:0;}
 #releasePage .romReleaseSidebar{min-width:0;}
 @media(max-width:740px){#releasePage .romReleaseHero{grid-template-columns:1fr!important}}
+
+/* ROM v23: repair broken catalog/about/news width from v21 global max-width rule. */
+#pageView.pageView:not(:has(.romProfilePage)){
+  display:block;
+  width:100%;
+  max-width:1180px;
+  min-width:0;
+  margin-left:auto;
+  margin-right:auto;
+  padding:clamp(52px,7vw,92px) 30px 100px;
+}
+#pageView .pageIntro,#pageView .pageBody{max-width:100%;min-width:0}
+#pageView .catalogGrid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:24px}
+#pageView .aboutGrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+#pageView .romNewsGrid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:20px}
+#pageView .catalogCard{width:auto;max-width:100%;min-width:0}
+#pageView .catalogCover{width:100%;aspect-ratio:1/1}
+/* Prevent a GPU canvas seam at the final visible scanline. */
+#romGridCanvas{clip-path:inset(0 0 3px 0)!important;outline:0!important;border:0!important}
+body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;right:0;bottom:0;height:2px;background:#050605;z-index:3}
+@media(max-width:1050px){
+  #pageView .catalogGrid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media(max-width:760px){
+  #pageView.pageView:not(:has(.romProfilePage)){padding:38px 18px 75px}
+  #pageView .catalogGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px}
+  #pageView .aboutGrid{grid-template-columns:1fr!important}
+  #pageView .romNewsGrid{grid-template-columns:1fr!important}
+  #pageView .aboutNote{grid-template-columns:1fr;gap:14px}
+}
+@media(max-width:420px){#pageView .catalogGrid{gap:10px!important}}
