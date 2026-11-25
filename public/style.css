@@ -1704,3 +1704,36 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
   #pageView .aboutNote{grid-template-columns:1fr;gap:14px}
 }
 @media(max-width:420px){#pageView .catalogGrid{gap:10px!important}}
+
+/* ROM v24: management moved from public profile to account settings */
+.romSettingsManagement{margin-top:22px}
+.romSettingsManagement>p{color:#aebdaf;margin:0 0 20px;font-size:15px}
+.romSettingsManagementButtons{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.romSettingsManagementButtons .button{min-height:44px}
+@media(max-width:560px){.romSettingsManagementButtons{flex-direction:column;align-items:stretch}.romSettingsManagementButtons .button{width:100%}}
+
+/* ROM v25: tighter badge and admin surfaces */
+.romProfileIntro h1 .romProfileArtistMark{width:32px!important;height:32px!important;min-width:32px!important;font-size:32px!important;align-self:center;display:inline-flex!important;vertical-align:middle!important}
+.romProfileIntro h1 .romProfileArtistMark svg{width:100%!important;height:100%!important}
+.romSettingsManagement{padding:18px 22px!important}
+.romManagementShortcut{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.romManagementShortcut>span{font-size:16px;font-weight:800}
+.romManagementOnlyButton{display:grid;place-items:center;width:46px;height:46px;padding:0;border:1px solid #3c5139;border-radius:13px;background:#1b291b;color:#b8ff72;cursor:pointer}
+.romManagementOnlyButton svg{width:23px;height:23px}
+.romManagementOnlyButton:hover{border-color:#b8ff72;background:#223622}
+.romPrivateId{display:flex;align-items:center;gap:15px;flex-wrap:wrap;padding:12px 16px;background:#152017;border:1px solid #354335;border-radius:12px;margin:16px 0}
+.romPrivateId span{color:#aab7a6}.romPrivateId strong{font-size:19px;letter-spacing:.02em}
+.romAdminDashboardGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:15px}
+.romAdminDashboardGrid>button{display:flex;flex-direction:column;align-items:flex-start;gap:12px;text-align:left;padding:24px;min-height:155px;border:1px solid #334435;border-radius:16px;background:#121a13;color:#f5fff0;cursor:pointer}
+.romAdminDashboardGrid>button:hover{border-color:#9ada79;background:#1b291c}
+.romAdminDashboardGrid strong{font-size:22px}.romAdminDashboardGrid small{font-size:14px;color:#aebda9}
+.romAdminDashboardIcon{font-size:27px;color:#b8ff72}
+.romAdminAlbumRow{display:flex!important;position:relative;gap:16px;align-items:center;width:100%;text-align:left;padding:13px 16px;border-bottom:1px solid #304033}
+.romAdminAlbumRow>img{width:60px;height:60px;object-fit:cover;border-radius:7px}.romAlbumEmpty{width:60px;height:60px;display:grid;place-items:center;background:#233323;border-radius:7px}
+.romAdminAlbumInfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}.romAdminAlbumInfo strong{font-size:17px}.romAdminAlbumInfo small{font-size:14px;color:#a8b7a7}
+.romAlbumMore{position:relative;flex-shrink:0}.romAlbumMore summary{list-style:none;cursor:pointer;border:1px solid #435640;border-radius:10px;padding:7px 13px;font-size:25px;line-height:1;color:#d9ead3}.romAlbumMore summary::-webkit-details-marker{display:none}
+.romAlbumActions{position:absolute;right:0;top:calc(100% + 8px);z-index:30;min-width:180px;background:#1c281e;border:1px solid #455644;border-radius:12px;padding:6px;box-shadow:0 15px 45px #000b}
+.romAlbumActions button{display:block;width:100%;padding:12px 15px;border:0;background:transparent;color:#f4fff0;text-align:left;cursor:pointer;border-radius:8px;font-size:15px}.romAlbumActions button:hover{background:#304331}.romAlbumActions button.danger{color:#ff9999}
+.romAdminReviewRow{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 0;border-bottom:1px solid #344035}.romAdminReviewRow>div:first-child{min-width:0}.romAdminReviewRow p{color:#aab7a5;margin:8px 0 0}.romAdminRowControls{display:flex;gap:7px}
+.romArtistFound{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px;border:1px solid #344834;border-radius:13px}.romArtistFound small{color:#aabca9}
+@media(max-width:650px){.romAdminReviewRow{flex-direction:column;align-items:flex-start}.romAdminDashboardGrid{grid-template-columns:1fr}.romProfileIntro h1 .romProfileArtistMark{width:28px!important;height:28px!important;min-width:28px!important}}

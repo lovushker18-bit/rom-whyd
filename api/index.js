@@ -82,7 +82,7 @@ if(newsItem&&method==='PATCH'){
  return r.rowCount?send(res,200,{post:r.rows[0]}):send(res,404,{error:'Новость не найдена.'});
 }
 if(path==='/api/me'&&method==='GET')return send(res,200,{user:safe(await me(req))});
-if(path==='/api/register'&&method==='POST'){const username=String(b.username||'').trim(),email=String(b.email||'').trim().toLowerCase(),password=String(b.password||'');if(!/^[\p{L}\p{N}_-]{3,24}$/u.test(username)||!/^\S+@\S+\.\S+$/.test(email)||password.length<8||password.length>128)return send(res,400,{error:'Ник 3–24 символа, корректная почта и пароль от 8 символов обязательны.'});if(!process.env.GMAIL_USER||!process.env.GMAIL_APP_PASSWORD)return send(res,503,{error:'Администратор ещё не настроил отправку писем.'});const hash=await bcrypt.hash(password,12);let r;try{r=await q('INSERT INTO users(username,email,password_hash) VALUES($1,$2,$3) RETURNING *',[username,email,hash]);}catch(e){if(e.code==='23505')return send(res,409,{error:'Ник или почта уже заняты.'});throw e;}await session(res,r.rows[0]);try{await sendVerification(r.rows[0]);}catch(e){return send(res,201,{user:safe(r.rows[0]),email_sent:false,message:'Аккаунт создан, но письмо не отправлено. Повтори отправку в настройках.'});}return send(res,201,{user:safe(r.rows[0]),email_sent:true});}
+if(path==='/api/register'&&method==='POST'){const username=String(b.username||'').trim(),email=String(b.email||'').trim().toLowerCase(),password=String(b.password||'');if(!/^[\p{L}\p{N}_-]{3,24}$/u.test(username)||!/^\S+@\S+\.\S+$/.test(email)||password.length<8||password.length>128)return send(res,400,{error:'Ник 3–24 символа, корректная почта и пароль от 8 символов обязательны.'});if(!process.env.GMAIL_USER||!process.env.GMAIL_APP_PASSWORD)return send(res,503,{error:'Администратор ещё не настроил отправку писем.'});const hash=await bcrypt.hash(password,12);let r;try{r=await q('INSERT INTO users(username,email,password_hash) VALUES($1,$2,$3) RETURNING *',[username,email,hash]);}catch(e){if(e.code==='23505')return send(res,409,{error:'Этот ник или адрес электронной почты уже зарегистрирован. Выбери другой.'});throw e;}await session(res,r.rows[0]);try{await sendVerification(r.rows[0]);}catch(e){return send(res,201,{user:safe(r.rows[0]),email_sent:false,message:'Аккаунт создан, но письмо не отправлено. Повтори отправку в настройках.'});}return send(res,201,{user:safe(r.rows[0]),email_sent:true});}
 if(path==='/api/login'&&method==='POST'){const email=String(b.email||b.login||'').trim().toLowerCase();const r=await q('SELECT * FROM users WHERE LOWER(email)=$1',[email]);if(!r.rowCount||!await bcrypt.compare(String(b.password||''),r.rows[0].password_hash))return send(res,401,{error:'Неверная почта или пароль.'});await session(res,r.rows[0]);return send(res,200,{user:safe(r.rows[0])});}
 if(path==='/api/logout'&&method==='POST'){const t=cookies(req).rom_session;if(t)await q('DELETE FROM sessions WHERE id=$1',[sha(t)]);res.setHeader('Set-Cookie',cookie('',0));return send(res,200,{ok:true});}
 if(path==='/api/resend-verification'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(u.email_verified)return send(res,400,{error:'Почта уже подтверждена.'});const last=await q(`SELECT 1 FROM email_tokens WHERE user_id=$1 AND expires_at>NOW()+INTERVAL '9 minutes'`,[u.id]);if(last.rowCount)return send(res,429,{error:'Код уже отправлен. Подожди минуту и попробуй снова.'});try{await sendVerification(u);return send(res,200,{ok:true});}catch(err){console.error('Gmail verification error:',err.message);return send(res,502,{error:'Не удалось отправить письмо. Проверь настройки Gmail в Vercel и логи сервера.'});}}
@@ -142,6 +142,55 @@ if(adminUser&&method==='PATCH'){
  if(typeof b.is_artist!=='boolean')return send(res,400,{error:'Укажи is_artist.'});
  const r=await q('UPDATE users SET is_artist=$1 WHERE id=$2 RETURNING id,username,is_artist',[b.is_artist,adminUser[1]]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Пользователь не найден.'});
 }
+// Administration: moderator actions are always validated server-side.
+const adminVerify=path.match(/^\/api\/admin\/users\/([^/]+)\/verification$/);
+if(adminVerify&&method==='PATCH'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const username=decodeURIComponent(adminVerify[1]);if(typeof b.is_verified!=='boolean')return send(res,400,{error:'Укажи статус верификации.'});
+ const r=await q('UPDATE users SET is_verified=$1 WHERE LOWER(username)=LOWER($2) RETURNING id,username,is_verified',[b.is_verified,username]);
+ return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Пользователь с таким ником не найден.'});
+}
+const adminReview=path.match(/^\/api\/admin\/reviews\/(\d+)$/);
+if(adminReview&&method==='DELETE'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const r=await q('DELETE FROM reviews WHERE id=$1 RETURNING id,album_id,user_id',[adminReview[1]]);
+ return r.rowCount?send(res,200,{ok:true,album_id:r.rows[0].album_id}):send(res,404,{error:'Рецензия не найдена.'});
+}
+if(adminReview&&method==='PATCH'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const title=String(b.title||'').trim(),body=String(b.body||'').trim(),rating=Number(b.rating);
+ if(title.length>150||!body||body.length>10000||!Number.isInteger(rating)||rating<1||rating>90)return send(res,400,{error:'Нужен текст рецензии и целая оценка от 1 до 90.'});
+ const client=await db().connect();try{
+  await client.query('BEGIN');
+  const r=await client.query('UPDATE reviews SET title=$1,body=$2,rating=$3 WHERE id=$4 RETURNING id,album_id,user_id',[title,body,rating,adminReview[1]]);
+  if(!r.rowCount){await client.query('ROLLBACK');return send(res,404,{error:'Рецензия не найдена.'})}
+  await client.query('UPDATE ratings SET rating=$1,updated_at=NOW() WHERE album_id=$2 AND user_id=$3',[rating,r.rows[0].album_id,r.rows[0].user_id]);
+  await client.query('COMMIT');return send(res,200,{ok:true});
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}
+if(path==='/api/admin/reviews'&&method==='GET'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const r=await q(`SELECT r.id,r.album_id,r.user_id,r.title,r.body,r.rating,r.created_at,u.username,a.title AS album_title,a.cover_url,ar.name AS artist_name
+ FROM reviews r JOIN users u ON u.id=r.user_id JOIN albums a ON a.id=r.album_id JOIN artists ar ON ar.id=a.artist_id ORDER BY r.created_at DESC LIMIT 200`);
+ return send(res,200,{reviews:r.rows});
+}
+if(path==='/api/admin/users/by-id'&&method==='POST'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const id=String(b.id||'').trim();if(!/^\d{1,18}$/.test(id))return send(res,400,{error:'Введите числовой ID пользователя.'});
+ const r=await q('SELECT id,username,is_artist,email_verified FROM users WHERE id=$1',[id]);
+ return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Аккаунт с таким ID не найден.'});
+}
+const adminAlbumDelete=path.match(/^\/api\/admin\/albums\/(\d+)$/);
+if(adminAlbumDelete&&method==='DELETE'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const client=await db().connect();try{
+  await client.query('BEGIN');
+  // Reviews/ratings have cascade on album_id; remove the release in one transaction.
+  const r=await client.query('DELETE FROM albums WHERE id=$1 RETURNING id',[adminAlbumDelete[1]]);
+  await client.query('COMMIT');
+  return r.rowCount?send(res,200,{ok:true}):send(res,404,{error:'Релиз не найден.'});
+ }catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
+}
 if(path==='/api/artists'&&method==='GET'){const r=await q('SELECT * FROM artists ORDER BY name');return send(res,200,{artists:r.rows});}
 if(path==='/api/albums'&&method==='GET'){const r=await q(`${albumsSql} GROUP BY a.id,ar.name ORDER BY a.created_at DESC LIMIT 300`);return send(res,200,{albums:r.rows});}
 const album=path.match(/^\/api\/albums\/(\d+)$/);if(album&&method==='GET'){const r=await q(`${albumsSql} WHERE a.id=$1 GROUP BY a.id,ar.name`,[album[1]]);if(!r.rowCount)return send(res,404,{error:'Релиз не найден.'});const tracks=await q('SELECT * FROM tracks WHERE album_id=$1 ORDER BY track_number',[album[1]]);const reviews=await q(`SELECT r.id,r.user_id,r.album_id,r.rating,r.title,r.body,r.created_at,u.username,u.is_artist,u.avatar_url FROM reviews r JOIN users u ON u.id=r.user_id WHERE r.album_id=$1 UNION ALL SELECT 0 AS id,rt.user_id,rt.album_id,rt.rating,'' AS title,'' AS body,rt.updated_at AS created_at,u.username,u.is_artist,u.avatar_url FROM ratings rt JOIN users u ON u.id=rt.user_id WHERE rt.album_id=$1 AND NOT EXISTS (SELECT 1 FROM reviews rv WHERE rv.album_id=rt.album_id AND rv.user_id=rt.user_id) ORDER BY created_at DESC`,[album[1]]);return send(res,200,{album:r.rows[0],tracks:tracks.rows,reviews:reviews.rows});}
@@ -168,7 +217,7 @@ if(album&&method==='PATCH'){
 }
 if(path==='/api/albums'&&method==='POST'){
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
- if(!u.is_verified&&!u.is_admin)return send(res,403,{error:'Добавлять релизы могут только пользователи с галочкой.'});
+ if(!u.is_admin)return send(res,403,{error:'Публиковать релизы напрямую может только администратор. Артисты отправляют их на модерацию.'});
  const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),featuring=String(b.featuring||'').trim(),cover=String(b.cover_url||'').trim();
  const tracks=b.tracks,kind=b.release_type,color=String(b.background_color||'#8bff72');if(!/^#[0-9a-f]{6}$/i.test(color))return send(res,400,{error:'Некорректный цвет фона.'});
  if(!title||title.length>200||!artist||artist.length>120||featuring.length>250)return send(res,400,{error:'Укажи название и исполнителя. Проверь длину полей.'});
