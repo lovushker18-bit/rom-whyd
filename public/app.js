@@ -209,7 +209,9 @@ function albumCard(album) {
   </article>`;
 }
 
+let romPageRequest = 0;
 async function renderPage(page) {
+  const requestId=++romPageRequest;
   $('#homeView').classList.add('hidden');
   $('#releasePage').classList.add('hidden');
   $('#pageView').classList.remove('hidden');
@@ -240,14 +242,15 @@ async function renderPage(page) {
 
   if (page === 'news') {
     try{
-      const {posts}=await api('/api/news');window.romNewsCache=posts;
+      const {posts}=await api('/api/news');if(requestId!==romPageRequest)return;window.romNewsCache=posts;
       $('#pageBody').innerHTML=posts.length?`<div class="romNewsGrid">${posts.map(n=>`<article class="romNewsCard">${n.cover_url?`<img src="${escapeAttr(n.cover_url)}" alt="" loading="lazy">`:''}<div class="romNewsCardBody"><time>${new Date(n.created_at).toLocaleDateString('ru-RU')}</time><h2>${escapeHtml(n.title)}</h2><p>${escapeHtml(n.summary||n.body.slice(0,160))}</p><button class="button secondary" onclick="romReadNews(${Number(n.id)})">Читать</button></div></article>`).join('')}</div>`:'<div class="emptyState"><h2>Пока без новостей</h2><p>Здесь появятся публикации ROM.</p></div>';
-    }catch(e){$('#pageBody').innerHTML=`<div class="emptyState"><h2>Новости пока недоступны</h2><p>${escapeHtml(e.message)}</p></div>`}
+    }catch(e){if(requestId!==romPageRequest)return;$('#pageBody').innerHTML=`<div class="emptyState"><h2>Новости пока недоступны</h2><p>${escapeHtml(e.message)}</p></div>`}
     return;
   }
 
   try {
     const data = await api('/api/albums');
+    if(requestId!==romPageRequest)return;
     let albums = [...(data.albums || [])];
     if (page === 'best') {
       albums.sort((a, b) => (Number(b.average_rating ?? -1) - Number(a.average_rating ?? -1)) || Number(b.rating_count || 0) - Number(a.rating_count || 0));
@@ -258,6 +261,7 @@ async function renderPage(page) {
     }
     $('#pageBody').innerHTML = `<div class="catalogToolbar"><span>${albums.length} ${albums.length === 1 ? 'релиз' : 'релизов'}</span><span>${page === 'best' ? 'Сортировка: по оценке' : 'Сначала новые'}</span></div><div class="catalogGrid">${albums.map(albumCard).join('')}</div>`;
   } catch (err) {
+    if(requestId!==romPageRequest)return;
     $('#pageBody').innerHTML = `<div class="emptyState"><h2>Не удалось загрузить каталог</h2><p>${escapeHtml(err.message)}</p></div>`;
   }
 }
@@ -285,6 +289,7 @@ function romBackgroundMode(){
 }
 function romScheduleBackground(){requestAnimationFrame(romBackgroundMode)}
 function goHome() {
+  ++romPageRequest;
   $('#releasePage').classList.add('hidden');
   $('#pageView').classList.add('hidden');
   $('#homeView').classList.remove('hidden');
@@ -315,8 +320,12 @@ function romAudioInit(){
   vol.addEventListener('input',()=>a.volume=Number(vol.value)/100);
  });
 }
-function romRatingColor(score){const hue=Math.round(Math.max(0,Math.min(90,score))/90*112);return `hsl(${hue} 88% 64%)`}
+function romRatingColor(score){const n=Math.max(1,Math.min(90,Number(score)||1));const hue=Math.round((n-1)/89*120);return `hsl(${hue} 95% 53%)`}
 function romTheme(theme){return ['none','aurora','glow','waves'].includes(theme)?theme:'none'}
+function romBrightenColor(hex){
+ const safe=romSafeColor(hex);
+ return '#'+[1,3,5].map(i=>Math.min(255,parseInt(safe.slice(i,i+2),16)*2).toString(16).padStart(2,'0')).join('');
+}
 function romSafeColor(color){return /^#[0-9a-f]{6}$/i.test(String(color||''))?String(color).toLowerCase():'#8bff72'}
 function romClampReleaseRgb(hex){
  const safe=romSafeColor(hex);
@@ -347,12 +356,15 @@ function romReleaseDate(value){
 }
 function romOpenRating(){const composer=document.querySelector('#ratingComposer');if(composer){composer.classList.toggle('hidden');if(!composer.classList.contains('hidden'))composer.querySelector('[name="rating"]').focus()}}
 async function openAlbum(id) {
- romEnterPage('#releasePage');
+ ++romPageRequest;
+ const albumRequest=romPageRequest;
+ if(romActiveAudio){romActiveAudio.pause();romActiveAudio=null;}
  try {
   const data=await api(`/api/albums/${id}`),a=data.album;
+  if(albumRequest!==romPageRequest)return;
   const average=a.average_rating==null?'—':Number(a.average_rating).toFixed(1).replace(/\.0$/,'');
   $('#releasePage').style.setProperty('--page-glow',romSafeColor(a.background_color));
-  document.body.style.setProperty('--rom-grid-color',romSafeColor(a.background_color));
+  document.body.style.setProperty('--rom-grid-color',romBrightenColor(a.background_color));
   const reviews=(data.reviews||[]).sort((x,y)=>Number(Boolean(y.body?.trim()))-Number(Boolean(x.body?.trim()))||new Date(y.created_at)-new Date(x.created_at));
   $('#releaseContent').innerHTML=`
   <div class="romReleaseHeading"><div class="romReleaseHeadingArtist">${escapeHtml(a.artist_name)}</div><h1>${escapeHtml(a.title)}</h1></div>
@@ -363,7 +375,7 @@ async function openAlbum(id) {
         <div class="romOverviewBlock romOverviewRating">
           <span class="romOverviewLabel">ОЦЕНКА ПОЛЬЗОВАТЕЛЕЙ</span>
           <div class="romOverviewRatingRow"><strong>${average}</strong><div class="romOverviewRatingDetails"><span>из 90 баллов</span><span>${Number(a.rating_count||0)} оценок</span></div></div>
-          <div class="romOverviewMeter"><span style="width:${a.average_rating==null?0:Math.max(0,Math.min(100,Number(a.average_rating)/90*100))}%"></span></div>
+          <div class="romOverviewMeter"><span style="width:${a.average_rating==null?0:Math.max(0,Math.min(100,Number(a.average_rating)/90*100))}%;background:${romRatingColor(a.average_rating)}!important"></span></div>
         </div>
         <div class="romOverviewBlock romOverviewFacts">
           <span class="romOverviewLabel">ИНФОРМАЦИЯ О РЕЛИЗЕ</span>
@@ -379,7 +391,7 @@ async function openAlbum(id) {
   romAudioInit();
   const composer=$('#ratingComposer');if(composer)composer.addEventListener('submit',async e=>{e.preventDefault();const btn=composer.querySelector('[type="submit"]');btn.disabled=true;try{const f=new FormData(composer);await api('/api/reviews',{method:'POST',body:JSON.stringify({album_id:id,rating:Number(f.get('rating')),title:String(f.get('title')||'').trim(),body:String(f.get('body')||'').trim()})});toast('Оценка опубликована!');await openAlbum(id);await loadAlbums()}catch(err){toast(err.message)}finally{btn.disabled=false}});
   $('#homeView').classList.add('hidden');$('#pageView').classList.add('hidden');$('#releasePage').classList.remove('hidden');$('#releasePage').classList.remove('romPageEnter');setActiveNav('');document.body.classList.add('releaseOpen');history.replaceState({albumId:id},'',`/#album-${id}`);window.scrollTo(0,0);romEnterPage('#releasePage');romScheduleBackground();
- }catch(err){toast(err.message)}
+ }catch(err){if(albumRequest===romPageRequest)toast('Не удалось загрузить релиз: '+err.message)}
 }
 
 function formatDuration(seconds) {
@@ -402,7 +414,7 @@ function escapeAttr(value) {
 
 function artistBadge(profile=false){
  const klass=profile?'romProfileArtistMark':'artistBadge';
- return `<span class="${klass}" title="Артист ROM" role="img" aria-label="Артист"><svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path fill="currentColor" d="M11 6.9 27 3v18.2c0 2.5-2.5 4.5-5.6 4.5-3 0-4.9-1.6-4.9-3.7s2.2-3.7 5.1-3.7c.8 0 1.5.1 2 .4V9.4l-9.6 2.4v13c0 2.6-2.5 4.6-5.7 4.6-3 0-4.9-1.6-4.9-3.7s2.2-3.7 5.2-3.7c.8 0 1.6.1 2.4.4V6.9z"/></svg></span>`;
+ return `<span class="${klass}" title="Артист ROM" role="img" aria-label="Артист"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.5 6.8 18.2 4.5v11.2M9.5 6.8v11.9" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/><ellipse cx="6.5" cy="19" rx="3.5" ry="2.4" transform="rotate(-18 6.5 19)" fill="currentColor"/><ellipse cx="15.2" cy="16" rx="3.5" ry="2.4" transform="rotate(-18 15.2 16)" fill="currentColor"/></svg></span>`;
 }
 function toggleProfileMenu(event){event.stopPropagation();$('#profileMenu')?.classList.toggle('hidden')}
 function closeProfileMenu(){$('#profileMenu')?.classList.add('hidden')}
@@ -413,7 +425,7 @@ async function openUserProfile(userId){
  catch(err){toast(err.message)}
 }
 function showSettings(){if(!currentUser)return openAuth();renderAccountSettings()}
-function accountPage(title,body,clean=false){$('#pageView').dataset.publicPage='false';$('#homeView').classList.add('hidden');$('#releasePage').classList.add('hidden');$('#pageView').classList.remove('hidden');document.body.classList.remove('releaseOpen');setActiveNav('');$('#pageView').innerHTML=`<section class="accountPage ${clean?'romProfilePage':''}">${clean?'':`<button class="ghost" onclick="goHome()">← Главная</button><h1>${title}</h1>`}${body}</section>`;window.scrollTo(0,0);if(clean)romEnterPage('#pageView .romProfilePage');romScheduleBackground()}
+function accountPage(title,body,clean=false){++romPageRequest;$('#pageView').dataset.publicPage='false';$('#homeView').classList.add('hidden');$('#releasePage').classList.add('hidden');$('#pageView').classList.remove('hidden');document.body.classList.remove('releaseOpen');setActiveNav('');$('#pageView').innerHTML=`<section class="accountPage ${clean?'romProfilePage':''}">${clean?'':`<button class="ghost" onclick="goHome()">← Главная</button><h1>${title}</h1>`}${body}</section>`;window.scrollTo(0,0);if(clean)romEnterPage('#pageView .romProfilePage');romScheduleBackground()}
 async function renderUserPage(u){
  accountPage('',`<div class="romProfileTop"><div class="romProfileAvatar">${u.avatar_url?`<img src="${escapeAttr(u.avatar_url)}" alt="">`:escapeHtml(u.username.slice(0,1).toUpperCase())}</div><div class="romProfileIntro"><h1><span class="romProfileName">${escapeHtml(u.username)}</span>${u.is_artist?artistBadge(true):''}${u.is_verified?'<span class="verifiedMark" title="Подтверждённый автор">✓</span>':''}</h1><p>${escapeHtml(u.bio||'Пока без описания')}</p></div></div>
  <div class="romProfileStats" id="romProfileStats"><div><span>Рецензии</span><strong>—</strong></div><div><span>Релизы</span><strong>—</strong></div><div><span>Оценки</span><strong>—</strong></div></div>
@@ -605,6 +617,9 @@ window.addEventListener("popstate", () => {
 (async function init() {
   try{await loadMe()}catch(e){toast('Не удалось подключиться к API: '+e.message)}
   await loadAlbums();
+  const initialHash=location.hash.slice(1);
+  if(/^album-\d+$/.test(initialHash))await openAlbum(Number(initialHash.slice(6)));
+  else if(['best','new','news','about'].includes(initialHash))await renderPage(initialHash);
   romScheduleBackground();
   const verify = new URLSearchParams(location.search).get('verify');
   if(verify==='success'){toast('Почта подтверждена!');await loadMe();history.replaceState({},'','/')}

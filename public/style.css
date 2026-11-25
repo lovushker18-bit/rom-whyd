@@ -1623,3 +1623,52 @@ html,body{max-width:100%;overflow-x:clip}
  .romProfileActionsSwitch{right:12px;bottom:16px;padding:10px 12px;font-size:12px}
  .romProfilePage{padding-bottom:105px!important}
 }
+
+/* ROM v22 — precise theme and stable layout. Overrides legacy release styles. */
+#releasePage .romOverviewMeter{background:#3d4640!important;height:6px!important;overflow:hidden!important;border-radius:0!important}
+#releasePage .romOverviewMeter>span{display:block!important;height:100%!important;transition:width .2s ease!important}
+#releasePage .romOverviewAction .romRateButton,
+#releasePage .romOverviewAction .romRateButton:hover,
+#releasePage .romOverviewAction .romRateButton:focus-visible{
+ background:var(--rom-panel-strong,#202522)!important;
+ border:1px solid var(--rom-edge,#354238)!important;
+ color:#f7fff4!important;
+ text-shadow:none!important;
+ box-shadow:none!important;
+ filter:none!important;
+ transition:border-color .14s ease!important;
+}
+#releasePage .romOverviewAction .romRateButton:hover{border-color:var(--rom-tone,#8bff72)!important}
+/* Badges: a black musical note centered in a small green disc. */
+.romProfileIntro h1 .romProfileArtistMark,
+.romProfileArtistMark,
+.artistBadge,
+.romReviewIdentity strong .artistBadge,
+.menuUsername .artistBadge{
+ position:static!important;top:auto!important;left:auto!important;inset:auto!important;
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ flex:0 0 15px!important;
+ width:15px!important;min-width:15px!important;max-width:15px!important;
+ height:15px!important;min-height:15px!important;max-height:15px!important;
+ padding:2px!important;margin:0 0 0 4px!important;
+ border:0!important;border-radius:50%!important;
+ color:#101910!important;background:#b8ff6a!important;
+ box-shadow:none!important;vertical-align:middle!important;
+ font-size:15px!important;line-height:1!important;transform:none!important;
+}
+.romProfileIntro h1 .romProfileArtistMark{margin-left:8px!important}
+.romProfileArtistMark svg,.artistBadge svg,
+.romProfileIntro h1 .romProfileArtistMark svg{
+ display:block!important;width:100%!important;height:100%!important;
+ min-width:0!important;min-height:0!important;max-width:100%!important;max-height:100%!important;
+ flex:0 0 auto!important;fill:none!important;overflow:visible!important;
+}
+/* Navigation and catalog containers keep their normal layout when switching pages. */
+#pageView:not(.hidden){display:block!important;min-height:calc(100vh - 72px)!important}
+#pageView .pageBody{display:block;min-width:0;width:100%;}
+#pageView .catalogGrid,#pageView .romNewsGrid{display:grid!important;min-width:0;}
+#releasePage:not(.hidden){display:block!important;min-height:calc(100vh - 72px)!important}
+#releasePage .romReleaseHero{display:grid!important;}
+#releaseContent{width:100%;min-width:0;}
+#releasePage .romReleaseSidebar{min-width:0;}
+@media(max-width:740px){#releasePage .romReleaseHero{grid-template-columns:1fr!important}}
