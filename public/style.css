@@ -1367,3 +1367,85 @@ body.romGridActive #romGridCanvas{opacity:1!important}
 .romRgbChannel input[type=range]{width:100%!important;height:24px!important;padding:0!important;margin:0!important;cursor:pointer;accent-color:#a8ff74}
 .romRgbChannel output{text-align:right;font-size:13px;color:#aebbae;font-variant-numeric:tabular-nums}
 @media(prefers-reduced-motion:reduce){#romGridCanvas{transition:none!important}}
+
+
+/* ROM v19 — subtle color-coherent glass panels and clean music identity */
+/* Existing theme is kept in Neon as --page-glow; mix it into neutral charcoal. */
+#releasePage,.romProfilePage{
+ --rom-tone:var(--page-glow,#8bff72);
+ --rom-panel:color-mix(in srgb,var(--rom-tone) 7%, #101311);
+ --rom-panel-strong:color-mix(in srgb,var(--rom-tone) 9%, #171c18);
+ --rom-edge:color-mix(in srgb,var(--rom-tone) 17%, #28312b);
+ --rom-edge-soft:color-mix(in srgb,var(--rom-tone) 9%, #262d28);
+}
+#releasePage .romOverviewPanel,
+#releasePage .romReview,
+#releasePage .romComposer,
+.romProfilePage .romProfileStats>div,
+.romProfilePage .romProfilePanel{
+ background:var(--rom-panel)!important;
+ background-image:none!important;
+ border-color:var(--rom-edge)!important;
+ box-shadow:none!important;
+}
+#releasePage .romOverviewPanel{background:var(--rom-panel-strong)!important}
+#releasePage .romOverviewBlock+.romOverviewBlock,
+.romProfilePage .romProfilePanelTitle,
+.romProfilePage .romProfileReviewItem,
+.romProfilePage .romDistributionTrack{
+ border-color:var(--rom-edge-soft)!important;
+}
+.romProfilePage .romDistributionTrack{
+ background:color-mix(in srgb,var(--rom-tone) 12%,#19201b)!important;
+}
+.romProfilePage .romDistributionTrack>div{background:var(--rom-tone)!important}
+.romProfilePage .romProfileReviewItem:hover{background:color-mix(in srgb,var(--rom-tone) 6%,#101610)!important}
+#releasePage .romReview:hover{background:var(--rom-panel)!important;border-color:var(--rom-edge)!important}
+#releasePage .romOverviewMeter span{background:var(--rom-tone)}
+
+/* Tracklist: quiet default, delicate outline only when hovered/focused. */
+#releasePage .romTrack{
+ border:1px solid transparent!important;
+ border-radius:12px!important;
+ background:transparent!important;
+ box-shadow:none!important;
+ transition:background .14s ease,border-color .14s ease!important;
+}
+#releasePage .romTrack:hover,#releasePage .romTrack:focus-within{
+ background:color-mix(in srgb,var(--rom-tone) 5%,#070a08)!important;
+ border-color:color-mix(in srgb,var(--rom-tone) 23%,#151e17)!important;
+}
+/* Simplified profile note. Fixed geometry, no font baseline dependence. */
+.romProfileIntro h1{display:flex!important;align-items:center!important;justify-content:flex-start!important;flex-wrap:wrap;column-gap:9px!important;row-gap:3px!important}
+.romProfileName{display:inline-block;white-space:nowrap;line-height:1.2}
+.romProfileArtistMark{
+ display:inline-flex!important;
+ align-items:center!important;
+ justify-content:center!important;
+ flex:0 0 24px!important;
+ width:24px!important;height:24px!important;
+ margin:2px 0 0 0!important;padding:0!important;
+ position:relative!important;top:0!important;left:0!important;
+ color:#b8ff74!important;
+ background:transparent!important;border:0!important;box-shadow:none!important;
+ vertical-align:middle!important;line-height:1!important;
+}
+.romProfileArtistMark svg{display:block!important;width:23px!important;height:23px!important;flex:none!important;overflow:visible!important}
+/* Review card: aligned author row and compact title/body tied to username column. */
+#releasePage .romReview{padding:24px 28px!important;border-radius:18px!important}
+#releasePage .romReviewUser{grid-template-columns:48px minmax(0,1fr) auto!important;gap:14px!important;align-items:center!important}
+#releasePage .romReviewAvatar{width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important}
+#releasePage .romReviewIdentity{display:flex!important;flex-direction:column!important;justify-content:center!important;min-width:0!important;gap:4px!important}
+#releasePage .romReviewIdentity strong{display:flex!important;align-items:center!important;gap:7px!important;min-height:0!important;margin:0!important;line-height:1.2!important}
+#releasePage .romReviewIdentity small{font-size:13px!important;line-height:1.25!important}
+#releasePage .romTextReview .romReviewBody{margin:10px 0 0 62px!important;padding:0!important}
+#releasePage .romReviewBody h3{margin:0 0 5px!important;font-size:21px!important;line-height:1.34!important}
+#releasePage .romReviewBody p{margin:0!important;font-size:16px!important;line-height:1.6!important}
+#releasePage .romReviewScore{font-size:34px!important;line-height:1.05!important;align-self:center!important}
+@media(max-width:650px){
+ #releasePage .romReview{padding:19px 17px!important}
+ #releasePage .romTextReview .romReviewBody{margin:13px 0 0 0!important}
+ .romProfileName{white-space:normal}
+ .romProfileArtistMark{width:22px!important;flex-basis:22px!important}
+}
+@media(prefers-reduced-motion:reduce){#releasePage .romTrack{transition:none!important}}

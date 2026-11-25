@@ -389,7 +389,12 @@ function escapeAttr(value) {
 }
 
 
-function artistBadge(){return '<span class="artistBadge" title="Артист ROM" aria-label="Артист"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="badgeSeal" d="M12 1.1 15 2.7 18.35 2.55 20 5.55 22.95 7.25 22.7 10.6 23 12 22.7 13.45 22.95 16.75 20 18.45 18.35 21.45 15 21.3 12 22.9 9 21.3 5.65 21.45 4 18.45 1.05 16.75 1.3 13.45 1 12 1.3 10.6 1.05 7.25 4 5.55 5.65 2.55 9 2.7Z" fill="#b6ff70"/><path d="M11 6.8v7.1a2.55 2.55 0 1 1-1.9-2.46V8l6.8-1.5v6.7a2.55 2.55 0 1 1-1.9-2.46V4.6L11 6.8Z" fill="#10210a"/></svg></span>'}
+function artistBadge(profile=false){
+ // A single clearly readable double eighth note, with exact 24×24 geometry.
+ // Profile variant gets its own style so old generic badge overrides cannot shift it.
+ const klass=profile?'romProfileArtistMark':'artistBadge';
+ return `<span class="${klass}" title="Артист ROM" role="img" aria-label="Артист"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10.25 5.4 20 3.25v11.5a3.65 3.65 0 1 1-2.25-3.37V7.05l-5.25 1.18v9.02a3.65 3.65 0 1 1-2.25-3.37V5.4Z"/></svg></span>`;
+}
 function toggleProfileMenu(event){event.stopPropagation();$('#profileMenu')?.classList.toggle('hidden')}
 function closeProfileMenu(){$('#profileMenu')?.classList.add('hidden')}
 document.addEventListener('click',e=>{if(!e.target.closest('.profileMenuWrap'))closeProfileMenu()});
@@ -401,7 +406,7 @@ async function openUserProfile(userId){
 function showSettings(){if(!currentUser)return openAuth();renderAccountSettings()}
 function accountPage(title,body,clean=false){$('#pageView').dataset.publicPage='false';$('#homeView').classList.add('hidden');$('#releasePage').classList.add('hidden');$('#pageView').classList.remove('hidden');document.body.classList.remove('releaseOpen');setActiveNav('');$('#pageView').innerHTML=`<section class="accountPage ${clean?'romProfilePage':''}">${clean?'':`<button class="ghost" onclick="goHome()">← Главная</button><h1>${title}</h1>`}${body}</section>`;window.scrollTo(0,0);if(clean)romEnterPage('#pageView .romProfilePage');romScheduleBackground()}
 async function renderUserPage(u){
- accountPage('',`<div class="romProfileTop"><div class="romProfileAvatar">${u.avatar_url?`<img src="${escapeAttr(u.avatar_url)}" alt="">`:escapeHtml(u.username.slice(0,1).toUpperCase())}</div><div class="romProfileIntro"><div class="romProfileKicker">ПРОФИЛЬ ROM</div><h1>${escapeHtml(u.username)} ${u.is_artist?artistBadge():''} ${u.is_verified?'<span class="verifiedMark" title="Подтверждённый автор">✓</span>':''}</h1><p>${escapeHtml(u.bio||'Пока без описания')}</p></div></div>
+ accountPage('',`<div class="romProfileTop"><div class="romProfileAvatar">${u.avatar_url?`<img src="${escapeAttr(u.avatar_url)}" alt="">`:escapeHtml(u.username.slice(0,1).toUpperCase())}</div><div class="romProfileIntro"><div class="romProfileKicker">ПРОФИЛЬ ROM</div><h1><span class="romProfileName">${escapeHtml(u.username)}</span>${u.is_artist?artistBadge(true):''}${u.is_verified?'<span class="verifiedMark" title="Подтверждённый автор">✓</span>':''}</h1><p>${escapeHtml(u.bio||'Пока без описания')}</p></div></div>
  <div class="romProfileStats" id="romProfileStats"><div><span>Рецензии</span><strong>—</strong></div><div><span>Релизы</span><strong>—</strong></div><div><span>Оценки</span><strong>—</strong></div></div>
  <div class="romProfileGrid"><section class="romProfilePanel"><div class="romProfilePanelTitle"><h2>Написанные рецензии</h2></div><div id="romProfileReviews" class="romProfileReviews"><p class="mutedSmall">Загружаем рецензии…</p></div></section><aside class="romProfilePanel"><div class="romProfilePanelTitle"><h2>Распределение оценок</h2></div><div id="romProfileDistribution" class="romDistribution"><p class="mutedSmall">Загрузка…</p></div></aside></div>
  <div class="romProfileActions">${u.is_artist?'<button class="button" onclick="showTrackSubmission()">Отправить трек</button>':''}${u.is_verified||u.is_admin?'<button class="button secondary" onclick="showAddRelease()">Добавить релиз</button>':''}${u.is_artist||u.is_admin?'<button class="button secondary" onclick="showSubmissions()">Заявки / модерация</button>':''}${u.is_admin?'<button class="button secondary" onclick="showTestPanel()">Панель тестирования</button>':''}</div>`,true);
