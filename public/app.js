@@ -157,7 +157,7 @@ async function loadAlbums() {
     card?.classList.remove("isEmpty");
     $("#featuredTitle").textContent = album.title;
     $("#featuredArtist").textContent = album.artist_name;
-    const score = album.average_rating == null ? "?" : Number(album.average_rating).toFixed(1).replace(/\.0$/, "");
+    const score = album.average_rating == null ? "?" : Math.round(Number(album.average_rating));
     $("#featuredScore").textContent = `${score}/90`;
     const cover = $("#featuredCover");
     cover.style.setProperty("--cover-image", album.cover_url ? `url("${String(album.cover_url).replace(/["\\]/g, "\\$&")}")` : "none");
@@ -200,7 +200,7 @@ function navigatePage(event, page) {
 function albumCard(album) {
   const score = album.average_rating == null
     ? '—'
-    : `${Number(album.average_rating).toFixed(1).replace(/\.0$/, '')}/90`;
+    : `${Math.round(Number(album.average_rating))}/90`;
   const cover = album.cover_url
     ? `<div class="catalogCover" style="background-image:url('${escapeAttr(album.cover_url)}')"></div>`
     : `<div class="catalogCover catalogPlaceholder">${escapeHtml(String(album.title || 'R').slice(0, 1).toUpperCase())}</div>`;
@@ -394,7 +394,7 @@ async function openAlbum(id) {
  try {
   const data=await api(`/api/albums/${id}`),a=data.album;
   if(albumRequest!==romPageRequest)return;
-  const average=a.average_rating==null?'—':Number(a.average_rating).toFixed(1).replace(/\.0$/,'');
+  const average=a.average_rating==null?'—':Math.round(Number(a.average_rating));
   $('#releasePage').style.setProperty('--page-glow',romSafeColor(a.background_color));
   document.body.style.setProperty('--rom-grid-color',romBrightenColor(a.background_color));
   const reviews=(data.reviews||[]).sort((x,y)=>Number(Boolean(y.body?.trim()))-Number(Boolean(x.body?.trim()))||new Date(y.created_at)-new Date(x.created_at));
