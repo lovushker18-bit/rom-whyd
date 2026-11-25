@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 :root {
   --bg: #0b0b0d;
@@ -1911,7 +1911,7 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romReviewIdentity .artistBadge,
 .romReviewIdentity .romProfileArtistMark {
     position: relative !important;
-    left: -15px !important;
+    left: -35px !important;
 }
 =======
 >>>>>>> c8b1cbce9793d544fa0b8d0684360c4453ef7305
