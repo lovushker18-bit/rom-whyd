@@ -1527,3 +1527,99 @@ body.romGridActive #romGridCanvas{opacity:1!important}
 .romProfileIntro .romProfileName {line-height:1.14 !important;}
 /* Profile theme stays the original ROM green, with no per-user controls. */
 .romProfilePage {--page-glow:#8bff72 !important;}
+
+/* ROM v21: compact RGB tile, artist note, customizable controls */
+/* The album action uses the same color variable as the player. */
+#releasePage .romOverviewAction .romRateButton{
+  background:var(--page-glow,#8bff72)!important;
+  border:1px solid color-mix(in srgb,var(--page-glow,#8bff72) 72%,#111)!important;
+  color:#ffffff!important;
+  font-weight:850!important;
+  box-shadow:none!important;
+  text-shadow:0 1px 2px #0009;
+}
+#releasePage .romOverviewAction .romRateButton:hover,
+#releasePage .romOverviewAction .romRateButton:focus-visible{
+  background:color-mix(in srgb,var(--page-glow,#8bff72) 78%,#101610)!important;
+  border-color:var(--page-glow,#8bff72)!important;
+}
+/* Make light and dark custom backgrounds readable. */
+#releasePage .romOverviewAction .romRateButton{color:#f7fff6!important}
+/* Beamed notes: no circle, predictable geometry for all sizes. */
+.romProfileIntro h1 .romProfileArtistMark,
+.romProfileArtistMark,
+.artistBadge{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  position:static!important;
+  inset:auto!important;
+  transform:none!important;
+  width:1em!important;
+  min-width:1em!important;
+  max-width:1em!important;
+  height:1em!important;
+  min-height:1em!important;
+  max-height:1em!important;
+  flex:0 0 1em!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:#adff70!important;
+  font-size:inherit!important;
+  line-height:1!important;
+  vertical-align:middle!important;
+}
+.romProfileIntro h1 .romProfileArtistMark svg,
+.romProfileArtistMark svg,.artistBadge svg{
+  display:block!important;
+  width:100%!important;height:100%!important;
+  max-width:none!important;max-height:none!important;
+  flex:0 0 100%!important;
+  overflow:visible!important;
+}
+.romProfileIntro h1{align-items:center!important;column-gap:.20em!important}
+.romReviewIdentity strong{align-items:center!important}
+.romReviewIdentity strong .artistBadge{font-size:17px!important}
+/* RGB picker — a single swatch with channels reported as text, no sliders. */
+.romRgbEditor{padding:19px!important}
+.romRgbPreview{display:flex!important;align-items:center!important;gap:14px!important;margin:6px 0 0!important;cursor:pointer}
+.romRgbHex{
+  position:static!important;display:block!important;flex:0 0 67px!important;
+  width:67px!important;height:57px!important;margin:0!important;
+  padding:3px!important;border:1px solid #526552!important;
+  border-radius:12px!important;background:#0b100c!important;cursor:pointer;
+}
+.romRgbDisplay{display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+.romRgbCode{font-size:17px!important;letter-spacing:.045em}
+.romRgbNumbers{font-size:13px!important;color:#b2c2b0}
+.romRgbChannel,.romRgbSwatch{display:none!important}
+/* Bottom-right actions visibility switch; not shown outside public profiles. */
+.romProfileActionsHidden{display:none!important}
+.romProfileActionsSwitch{
+  position:fixed;right:24px;bottom:26px;z-index:15;
+  display:inline-flex;align-items:center;gap:13px;
+  padding:11px 14px;border:1px solid #304634;border-radius:999px;
+  background:#0e1510ed;backdrop-filter:blur(12px);
+  box-shadow:0 8px 30px #0009;cursor:pointer;
+  color:#dae9d5;font-size:13px;font-weight:750;
+}
+.romProfileActionsSwitch[hidden]{display:none!important}
+.romProfileActionsSwitch input{position:absolute;width:1px;height:1px;opacity:0}
+.romSwitchTrack{position:relative;width:41px;height:23px;border-radius:999px;background:#334238;transition:background .15s;flex-shrink:0}
+.romSwitchTrack::after{content:'';position:absolute;top:3px;left:3px;width:17px;height:17px;background:#e8f1e6;border-radius:50%;transition:transform .15s}
+.romProfileActionsSwitch input:checked+.romSwitchTrack{background:#76bb54}
+.romProfileActionsSwitch input:checked+.romSwitchTrack::after{transform:translateX(18px);background:#101c0e}
+.romProfileActionsSwitch input:focus-visible+.romSwitchTrack{outline:2px solid #b8ff6a;outline-offset:3px}
+/* Prevent the stray one-pixel bottom and horizontal overflow on profiles. */
+html,body{max-width:100%;overflow-x:clip}
+#pageView,.romProfilePage,#releasePage{max-width:100%;min-width:0}
+#romGridCanvas{max-width:100%!important;max-height:100%!important;overflow:hidden!important;outline:0!important;border:0!important}
+.romProfilePage::after,#pageView::after{border:0!important}
+@media(max-width:650px){
+ .romProfileActionsSwitch{right:12px;bottom:16px;padding:10px 12px;font-size:12px}
+ .romProfilePage{padding-bottom:105px!important}
+}

@@ -318,13 +318,24 @@ function romAudioInit(){
 function romRatingColor(score){const hue=Math.round(Math.max(0,Math.min(90,score))/90*112);return `hsl(${hue} 88% 64%)`}
 function romTheme(theme){return ['none','aurora','glow','waves'].includes(theme)?theme:'none'}
 function romSafeColor(color){return /^#[0-9a-f]{6}$/i.test(String(color||''))?String(color).toLowerCase():'#8bff72'}
-function romRgbControls(color='#8bff72'){
- const c=romSafeColor(color);const rgb=[1,3,5].map(i=>parseInt(c.slice(i,i+2),16));
- return `<fieldset class="romRgbEditor"><legend>Цвет подсветки фона · RGB</legend><p class="romRgbDescription">Фон всегда чёрный. Сетка и свечение появляются только возле курсора.</p><div class="romRgbPreview"><span class="romRgbSwatch" style="background:${c}"></span><code class="romRgbCode">${c.toUpperCase()}</code><input class="romRgbHex" type="color" aria-label="Выбрать цвет" value="${c}" onchange="romRgbFromColor(this)"></div><input name="background_color" type="hidden" value="${c}">${['R','G','B'].map((n,i)=>`<label class="romRgbChannel"><span>${n}</span><input type="range" data-channel="${i}" min="0" max="255" value="${rgb[i]}" oninput="romRgbInput(this)"><output>${rgb[i]}</output></label>`).join('')}</fieldset>`
+function romClampReleaseRgb(hex){
+ const safe=romSafeColor(hex);
+ return '#'+[1,3,5].map(i=>Math.min(100,parseInt(safe.slice(i,i+2),16)).toString(16).padStart(2,'0')).join('');
 }
-function romRgbUpdate(root,rgb){if(!root)return;const color='#'+rgb.map(n=>Math.min(255,Math.max(0,Number(n)||0)).toString(16).padStart(2,'0')).join('');root.querySelector('[name="background_color"]').value=color;root.querySelector('.romRgbSwatch').style.background=color;root.querySelector('.romRgbCode').textContent=color.toUpperCase();root.querySelector('.romRgbHex').value=color;root.querySelectorAll('.romRgbChannel').forEach((row,i)=>{row.querySelector('input').value=rgb[i];row.querySelector('output').textContent=rgb[i]})}
-function romRgbInput(input){romRgbUpdate(input.closest('.romRgbEditor'),Array.from(input.closest('.romRgbEditor').querySelectorAll('.romRgbChannel input')).map(x=>Number(x.value)))}
-function romRgbFromColor(input){const c=romSafeColor(input.value);romRgbUpdate(input.closest('.romRgbEditor'),[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)))}
+function romRgbControls(color='#466446'){
+ const c=romSafeColor(color);
+ const [r,g,b]=[1,3,5].map(i=>parseInt(c.slice(i,i+2),16));
+ return `<fieldset class="romRgbEditor"><legend>Цвет фона релиза</legend><p class="romRgbDescription">Выбери оттенок на палитре. Максимум 100 для каждого канала RGB.</p><label class="romRgbPreview"><input class="romRgbHex" type="color" aria-label="Выбрать цвет фона" value="${c}" oninput="romRgbFromColor(this)" onchange="romRgbFromColor(this)"><span class="romRgbDisplay"><strong class="romRgbCode">${c.toUpperCase()}</strong><small class="romRgbNumbers">R ${r} · G ${g} · B ${b}</small></span></label><input name="background_color" type="hidden" value="${c}"></fieldset>`;
+}
+function romRgbFromColor(input){
+ const root=input.closest('.romRgbEditor');if(!root)return;
+ const color=romClampReleaseRgb(input.value);
+ input.value=color;
+ root.querySelector('[name="background_color"]').value=color;
+ root.querySelector('.romRgbCode').textContent=color.toUpperCase();
+ const [r,g,b]=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
+ root.querySelector('.romRgbNumbers').textContent=`R ${r} · G ${g} · B ${b}`;
+}
 
 function romGoBack(){if(history.length>1){history.back()}else goHome()}
 function romReleaseDate(value){
@@ -359,7 +370,7 @@ async function openAlbum(id) {
           <dl><div><dt>Тип релиза</dt><dd>${({single:'Сингл',multi_single:'Мульти-сингл',ep:'EP',album:'Альбом'})[a.release_type]||'Релиз'}</dd></div><div><dt>Дата релиза</dt><dd>${escapeHtml(romReleaseDate(a.release_date))}</dd></div></dl>
         </div>
       </div>
-      <div class="romOverviewAction">${currentUser?.email_verified?`<button class="button romRateButton" onclick="romOpenRating()">✎ Оценить релиз</button>`:currentUser?`<button class="button secondary" onclick="showSettings()">Подтверди почту для оценки</button>`:`<button class="button" onclick="openAuth()">Войти, чтобы оценить</button>`}</div>
+      <div class="romOverviewAction">${currentUser?.email_verified?`<button class="button romRateButton" onclick="romOpenRating()">Оценить релиз</button>`:currentUser?`<button class="button secondary" onclick="showSettings()">Подтверди почту для оценки</button>`:`<button class="button" onclick="openAuth()">Войти, чтобы оценить</button>`}</div>
     </div>
   </div>
   ${currentUser?.email_verified?`<form id="ratingComposer" class="romComposer hidden"><div class="romComposerHeading"><div><span class="eyebrow">ТВОЯ ОЦЕНКА</span><h3>Оценить ${escapeHtml(a.title)}</h3></div><button type="button" class="romClose" onclick="romOpenRating()" aria-label="Закрыть">✕</button></div><label>Оценка от 1 до 90<input name="rating" type="number" min="1" max="90" step="1" inputmode="numeric" placeholder="Например, 75" required></label><label>Заголовок рецензии <span class="romOptional">необязательно</span><input name="title" maxlength="150" placeholder="Что думаешь о релизе?"></label><label>Текст рецензии <span class="romOptional">необязательно</span><textarea name="body" rows="5" maxlength="10000" placeholder="Поделись впечатлениями или оставь только оценку"></textarea></label><button class="button" type="submit">Опубликовать оценку</button></form>`:''}
@@ -390,9 +401,8 @@ function escapeAttr(value) {
 
 
 function artistBadge(profile=false){
- // Scalable musical notes without a circle or background.
  const klass=profile?'romProfileArtistMark':'artistBadge';
- return `<span class="${klass}" title="Артист ROM" role="img" aria-label="Артист"><svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M12 8.5 26 5v17M12 8.5v17" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="7.7" cy="25" rx="4.8" ry="3.4" transform="rotate(-18 7.7 25)" fill="currentColor"/><ellipse cx="21.7" cy="21.6" rx="4.8" ry="3.4" transform="rotate(-18 21.7 21.6)" fill="currentColor"/></svg></span>`;
+ return `<span class="${klass}" title="Артист ROM" role="img" aria-label="Артист"><svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path fill="currentColor" d="M11 6.9 27 3v18.2c0 2.5-2.5 4.5-5.6 4.5-3 0-4.9-1.6-4.9-3.7s2.2-3.7 5.1-3.7c.8 0 1.5.1 2 .4V9.4l-9.6 2.4v13c0 2.6-2.5 4.6-5.7 4.6-3 0-4.9-1.6-4.9-3.7s2.2-3.7 5.2-3.7c.8 0 1.6.1 2.4.4V6.9z"/></svg></span>`;
 }
 function toggleProfileMenu(event){event.stopPropagation();$('#profileMenu')?.classList.toggle('hidden')}
 function closeProfileMenu(){$('#profileMenu')?.classList.add('hidden')}
@@ -408,7 +418,8 @@ async function renderUserPage(u){
  accountPage('',`<div class="romProfileTop"><div class="romProfileAvatar">${u.avatar_url?`<img src="${escapeAttr(u.avatar_url)}" alt="">`:escapeHtml(u.username.slice(0,1).toUpperCase())}</div><div class="romProfileIntro"><h1><span class="romProfileName">${escapeHtml(u.username)}</span>${u.is_artist?artistBadge(true):''}${u.is_verified?'<span class="verifiedMark" title="Подтверждённый автор">✓</span>':''}</h1><p>${escapeHtml(u.bio||'Пока без описания')}</p></div></div>
  <div class="romProfileStats" id="romProfileStats"><div><span>Рецензии</span><strong>—</strong></div><div><span>Релизы</span><strong>—</strong></div><div><span>Оценки</span><strong>—</strong></div></div>
  <div class="romProfileGrid"><section class="romProfilePanel"><div class="romProfilePanelTitle"><h2>Написанные рецензии</h2></div><div id="romProfileReviews" class="romProfileReviews"><p class="mutedSmall">Загружаем рецензии…</p></div></section><aside class="romProfilePanel"><div class="romProfilePanelTitle"><h2>Распределение оценок</h2></div><div id="romProfileDistribution" class="romDistribution"><p class="mutedSmall">Загрузка…</p></div></aside></div>
- <div class="romProfileActions">${u.is_artist?'<button class="button" onclick="showTrackSubmission()">Отправить трек</button>':''}${u.is_verified||u.is_admin?'<button class="button secondary" onclick="showAddRelease()">Добавить релиз</button>':''}${u.is_artist||u.is_admin?'<button class="button secondary" onclick="showSubmissions()">Заявки / модерация</button>':''}${u.is_admin?'<button class="button secondary" onclick="showTestPanel()">Панель тестирования</button>':''}</div>`,true);
+ <div class="romProfileActions" id="romProfileActions">${u.is_artist?'<button class="button" onclick="showTrackSubmission()">Отправить трек</button>':''}${u.is_verified||u.is_admin?'<button class="button secondary" onclick="showAddRelease()">Добавить релиз</button>':''}${u.is_artist||u.is_admin?'<button class="button secondary" onclick="showSubmissions()">Заявки / модерация</button>':''}${u.is_admin?'<button class="button secondary" onclick="showTestPanel()">Панель тестирования</button>':''}</div><label class="romProfileActionsSwitch" title="Показать или скрыть кнопки управления"><span>Кнопки управления</span><input type="checkbox" id="romProfileActionsToggle" onchange="romToggleProfileActions(this.checked)" aria-label="Показывать кнопки управления"><span class="romSwitchTrack" aria-hidden="true"></span></label>`,true);
+ romRestoreProfileActions();
  document.querySelector('.romProfilePage').style.setProperty('--page-glow','#8bff72');
  document.body.style.setProperty('--rom-grid-color','#8bff72');
  try{
@@ -419,6 +430,21 @@ async function renderUserPage(u){
   const max=Math.max(1,...d.distribution);
   document.getElementById('romProfileDistribution').innerHTML=[...d.distribution].map((count,i)=>({label:i===8?'81–90':`${i*10+1}–${i*10+10}`,count})).reverse().map(item=>`<div class="romDistributionRow"><span>${item.label}</span><small>${item.count}</small><div class="romDistributionTrack"><div style="width:${item.count/max*100}%"></div></div></div>`).join('');
  }catch(err){const el=document.getElementById('romProfileReviews');if(el)el.textContent='Не удалось загрузить рецензии: '+err.message}
+}
+function romToggleProfileActions(visible){
+ const actions=document.getElementById('romProfileActions');
+ if(actions)actions.classList.toggle('romProfileActionsHidden',!visible);
+ try{localStorage.setItem('romShowProfileActions',visible?'1':'0')}catch{}
+}
+function romRestoreProfileActions(){
+ const actions=document.getElementById('romProfileActions');
+ const toggle=document.getElementById('romProfileActionsToggle');
+ if(!actions||!toggle)return;
+ const buttons=actions.querySelectorAll('button');
+ if(!buttons.length){toggle.closest('.romProfileActionsSwitch').hidden=true;return}
+ let visible=true;try{visible=localStorage.getItem('romShowProfileActions')!=='0'}catch{}
+ toggle.checked=visible;
+ actions.classList.toggle('romProfileActionsHidden',!visible);
 }
 function romReadNews(id){
  const n=(window.romNewsCache||[]).find(n=>Number(n.id)===Number(id));if(!n)return;
