@@ -61,6 +61,20 @@ if(path==='/api/logout'&&method==='POST'){const t=cookies(req).rom_session;if(t)
 if(path==='/api/resend-verification'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(u.email_verified)return send(res,400,{error:'Почта уже подтверждена.'});const last=await q(`SELECT 1 FROM email_tokens WHERE user_id=$1 AND expires_at>NOW()+INTERVAL '9 minutes'`,[u.id]);if(last.rowCount)return send(res,429,{error:'Код уже отправлен. Подожди минуту и попробуй снова.'});try{await sendVerification(u);return send(res,200,{ok:true});}catch(err){console.error('Gmail verification error:',err.message);return send(res,502,{error:'Не удалось отправить письмо. Проверь настройки Gmail в Vercel и логи сервера.'});}}
 if(path==='/api/profile'&&method==='PATCH'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});const bio=String(b.bio||'').trim(),avatar=String(b.avatar_url||'').trim();if(bio.length>500||avatar.length>500||avatar&&!/^https:\/\//.test(avatar))return send(res,400,{error:'Описание до 500 символов; аватар — HTTPS-ссылка.'});const r=await q('UPDATE users SET bio=$1,avatar_url=$2 WHERE id=$3 RETURNING *',[bio,avatar,u.id]);return send(res,200,{user:safe(r.rows[0])});}
 const profile=path.match(/^\/api\/users\/([^/]+)$/);if(profile&&method==='GET'){const r=await q('SELECT id,username,bio,avatar_url,email_verified,is_verified,is_artist,created_at FROM users WHERE LOWER(username)=LOWER($1)',[decodeURIComponent(profile[1])]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Профиль не найден.'});}
+const activity=path.match(/^\/api\/users\/(\d+)\/activity$/);
+if(activity&&method==='GET'){
+ const userId=Number(activity[1]);
+ const person=await q('SELECT id,username FROM users WHERE id=$1',[userId]);
+ if(!person.rowCount)return send(res,404,{error:'Пользователь не найден.'});
+ const reviews=await q(`SELECT rv.id,rv.album_id,rv.title,rv.rating,rv.created_at,a.title AS album_title,a.cover_url,ar.name AS artist_name
+ FROM reviews rv JOIN albums a ON a.id=rv.album_id JOIN artists ar ON ar.id=a.artist_id
+ WHERE rv.user_id=$1 AND NULLIF(TRIM(rv.body),'') IS NOT NULL ORDER BY rv.created_at DESC LIMIT 100`,[userId]);
+ const ratings=await q('SELECT rating FROM ratings WHERE user_id=$1',[userId]);
+ const releases=await q('SELECT COUNT(*)::int AS count FROM albums a JOIN artists ar ON ar.id=a.artist_id WHERE LOWER(ar.name)=LOWER($1)',[person.rows[0].username]);
+ const bins=Array(9).fill(0);
+ for(const row of ratings.rows){const v=Number(row.rating);if(v>=1&&v<=90)bins[Math.min(8,Math.floor((v-1)/10))]++}
+ return send(res,200,{reviews:reviews.rows,review_count:reviews.rows.length,rating_count:ratings.rowCount,release_count:releases.rows[0].count,distribution:bins});
+}
 if(path==='/api/submissions'&&method==='POST'){
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
  if(!u.email_verified)return send(res,403,{error:'Сначала подтверди почту.'});
