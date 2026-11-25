@@ -1849,6 +1849,7 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romFaqItem {padding:20px 0;border-bottom:1px solid rgba(185,255,110,.16);}
 .romFaqItem h3 {margin:0 0 9px;font-size:19px;}
 .romFaqItem p {white-space:pre-wrap;line-height:1.65;margin:0 0 12px;color:#c9d0c7;}
+<<<<<<< HEAD
 
 /* Artist emblem alignment: center of icon exactly matches center of username. */
 .romProfileIntro h1 {
@@ -1883,3 +1884,5 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
   .romProfileIntro h1 .romProfileArtistMark {width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;max-width:30px!important;max-height:30px!important;flex-basis:30px!important;}
   .romProfileIntro h1 .romProfileArtistMark img {width:30px!important;height:30px!important;}
 }
+=======
+>>>>>>> c8b1cbce9793d544fa0b8d0684360c4453ef7305
