@@ -1843,3 +1843,9 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
   max-height:100%!important;min-width:0!important;min-height:0!important;
   flex:0 0 auto!important;fill:currentColor!important;overflow:visible!important;
 }
+
+/* Pixel artist emblem: preserve original PNG pixels and align to text. */
+.romProfileArtistMark img,.artistBadge img {display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;image-rendering:pixelated!important;}
+.romFaqItem {padding:20px 0;border-bottom:1px solid rgba(185,255,110,.16);}
+.romFaqItem h3 {margin:0 0 9px;font-size:19px;}
+.romFaqItem p {white-space:pre-wrap;line-height:1.65;margin:0 0 12px;color:#c9d0c7;}

@@ -113,7 +113,7 @@ function renderAuthArea() {
   area.innerHTML = `${currentUser.is_admin?'<button type="button" class="romHeaderAdminButton" onclick="showTestPanel()" aria-label="Панель управления" title="Панель управления"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>':''}${currentUser.is_admin?'<button class="romNotificationBell" id="romNotificationBell" onclick="showAdminNotifications()" aria-label="Заявки и уведомления" title="Заявки и уведомления"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="romBellCount hidden" id="romBellCount">0</span></button>':''}${currentUser.is_artist?'<button class="uploadTrackTop" onclick="showTrackSubmission()">Загрузить трек</button>':''}<div class="profileMenuWrap">
     <button class="avatarButton" onclick="toggleProfileMenu(event)" aria-label="Меню профиля">${avatar}</button>
     <div id="profileMenu" class="profileDropdown hidden">
-      <div class="menuUsername">@${escapeHtml(currentUser.username)} ${currentUser.is_artist?artistBadge():''} ${currentUser.is_verified?'✓':''}</div>
+      <div class="menuUsername">${escapeHtml(currentUser.username)} ${currentUser.is_artist?artistBadge():''} ${currentUser.is_verified?'✓':''}</div>
       <button onclick="showProfile();closeProfileMenu()">Аккаунт</button>
       <button onclick="showSettings();closeProfileMenu()">Настройки</button>
       <button onclick="logout();closeProfileMenu()">Выйти</button>
@@ -446,7 +446,7 @@ function escapeAttr(value) {
 
 function artistBadge(profile=false){
  const klass=profile?'romProfileArtistMark':'artistBadge';
- return `<span class="${klass}" title="Артист ROM" role="img" aria-label="Артист"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M9 5.8 20 3v12.3a3.4 3.4 0 0 1-2.6 3.3c-2.1.6-4.1-.4-4.1-2.1 0-1.5 1.2-2.5 3-3l1.2-.3V7.1l-6 1.5v9a3.4 3.4 0 0 1-2.6 3.3c-2.1.6-4.1-.4-4.1-2.1 0-1.5 1.2-2.5 3-3l1.2-.3V5.8Z"/></svg></span>`;
+ return `<span class="${klass}" title="Артист ROM" role="img" aria-label="Артист"><img src="/artist-note.png" alt="" draggable="false"></span>`;
 }
 function toggleProfileMenu(event){event.stopPropagation();$('#profileMenu')?.classList.toggle('hidden')}
 function closeProfileMenu(){$('#profileMenu')?.classList.add('hidden')}
@@ -616,7 +616,7 @@ async function romSaveEditAlbum(e){
 }
 async function showTestPanel(){
  if(!currentUser?.is_admin)return toast('Только администратор');
- accountPage('Панель управления',`<div class="romAdminDashboard"><div class="romAdminDashboardGrid"><button onclick="showAdminAlbums()"><span class="romAdminDashboardIcon">◈</span><strong>Релизы</strong><small>Изменить или удалить</small></button><button onclick="showAdminReviews()"><span class="romAdminDashboardIcon">✎</span><strong>Рецензии</strong><small>Редактировать и удалить</small></button><button onclick="showAdminHelp()"><span class="romAdminDashboardIcon">✉</span><strong>Помощь</strong><small>Обращения пользователей</small></button><button onclick="showAdminArtistById()"><span class="romAdminDashboardIcon">♫</span><strong>Артисты</strong><small>Выдать роль по ID</small></button><button onclick="showAdminNews()"><span class="romAdminDashboardIcon">▤</span><strong>Новости</strong><small>Публикация и редактирование</small></button><button onclick="showAdminUsernameRequests()"><span class="romAdminDashboardIcon">✉</span><strong>Смена ника</strong><small>Запросы пользователей</small></button></div></div>`);
+ accountPage('Панель управления',`<div class="romAdminDashboard"><div class="romAdminDashboardGrid"><button onclick="showAdminAlbums()"><span class="romAdminDashboardIcon">◈</span><strong>Релизы</strong><small>Изменить или удалить</small></button><button onclick="showAdminReviews()"><span class="romAdminDashboardIcon">✎</span><strong>Рецензии</strong><small>Редактировать и удалить</small></button><button onclick="showAdminHelp()"><span class="romAdminDashboardIcon">✉</span><strong>Помощь</strong><small>Обращения пользователей</small></button><button onclick="showAdminArtistById()"><span class="romAdminDashboardIcon">♫</span><strong>Артисты</strong><small>Выдать роль по ID</small></button><button onclick="showAdminFaq()"><span class="romAdminDashboardIcon">?</span><strong>FAQ</strong><small>Вопросы и ответы</small></button><button onclick="showAdminNews()"><span class="romAdminDashboardIcon">▤</span><strong>Новости</strong><small>Публикация и редактирование</small></button><button onclick="showAdminUsernameRequests()"><span class="romAdminDashboardIcon">✉</span><strong>Смена ника</strong><small>Запросы пользователей</small></button></div></div>`);
 }
 async function showAdminNotifications(){
  if(!currentUser?.is_admin)return toast('Только администратор');
@@ -637,16 +637,16 @@ async function romDecideUsername(id,status){
 async function showAdminReviews(){
  if(!currentUser?.is_admin)return toast('Только администратор');
  accountPage('Управление рецензиями',`<div class="settingsCard"><h2>Рецензии пользователей</h2><div id="romAdminReviews">Загружаем…</div></div>`);
- try{const {reviews}=await api('/api/admin/reviews');window.romAdminReviewCache=reviews;document.querySelector('#romAdminReviews').innerHTML=reviews.length?reviews.map(r=>`<article class="romAdminReviewRow"><div><strong>${escapeHtml(r.username)}</strong><span> · ${escapeHtml(r.artist_name)} — ${escapeHtml(r.album_title)}</span><p>${escapeHtml(r.title||'Без заголовка')} · ${Number(r.rating)} / 90</p></div><div class="romAdminRowControls"><button type="button" class="button secondary" onclick="romEditAdminReview(${Number(r.id)})">Изменить</button><button type="button" class="button secondary" onclick="romDeleteAdminReview(${Number(r.id)})">Удалить</button></div></article>`).join(''):'<p>Рецензий пока нет.</p>'}catch(e){toast(e.message)}
+ try{const {reviews}=await api('/api/admin/reviews');window.romAdminReviewCache=reviews;document.querySelector('#romAdminReviews').innerHTML=reviews.length?reviews.map(r=>`<article class="romAdminReviewRow"><div><strong>${escapeHtml(r.username)}</strong><span> · ${escapeHtml(r.artist_name)} — ${escapeHtml(r.album_title)}</span><p>${escapeHtml(r.title||'Без заголовка')} · ${Number(r.rating)} / 90</p></div><div class="romAdminRowControls">${Number(r.id)>0?`<button type="button" class="button secondary" onclick="romEditAdminReview(${Number(r.id)})">Изменить</button>`:""}<button type="button" class="button secondary" onclick="romDeleteAdminReview(${Number(r.id)},${Number(r.user_id)},${Number(r.album_id)})">Удалить</button></div></article>`).join(''):'<p>Рецензий пока нет.</p>'}catch(e){toast(e.message)}
 }
 function romEditAdminReview(id){
  const r=(window.romAdminReviewCache||[]).find(x=>Number(x.id)===id);if(!r)return;
  accountPage('Редактировать рецензию',`<form class="settingsCard form" id="romReviewEditForm"><p>${escapeHtml(r.username)} · ${escapeHtml(r.album_title)}</p><label>Оценка (1–90)<input name="rating" type="number" min="1" max="90" step="1" required value="${Number(r.rating)}"></label><label>Заголовок<input name="title" maxlength="150" value="${escapeAttr(r.title||'')}"></label><label>Текст<textarea name="body" required rows="8" maxlength="10000">${escapeHtml(r.body||'')}</textarea></label><button class="button" type="submit">Сохранить</button><button class="button secondary" type="button" onclick="showAdminReviews()">Отмена</button></form>`);
  document.getElementById('romReviewEditForm').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget,d=new FormData(f);try{await api(`/api/admin/reviews/${id}`,{method:'PATCH',body:JSON.stringify({title:d.get('title'),body:d.get('body'),rating:Number(d.get('rating'))})});toast('Рецензия сохранена');showAdminReviews()}catch(err){toast(err.message)}});
 }
-async function romDeleteAdminReview(id){
- if(!confirm('Удалить текст рецензии? Оценка пользователя останется в рейтинге релиза.'))return;
- try{await api(`/api/admin/reviews/${id}`,{method:'DELETE'});toast('Рецензия удалена');showAdminReviews()}catch(e){toast(e.message)}
+async function romDeleteAdminReview(id,userId,albumId){
+ if(!confirm('Удалить рецензию и оценку пользователя без возможности восстановления?'))return;
+ try{await api(id?`/api/admin/reviews/${id}`:`/api/admin/ratings/${userId}/${albumId}`,{method:'DELETE'});toast('Рецензия и оценка удалены');await loadAlbums();showAdminReviews()}catch(e){toast(e.message)}
 }
 function showAdminVerification(){
  if(!currentUser?.is_admin)return toast('Только администратор');
@@ -724,17 +724,32 @@ window.addEventListener("popstate", () => {
   if(verify==='invalid'){toast('Ссылка подтверждения недействительна или устарела');history.replaceState({},'','/')}
 })();
 
-function romOpenInfoPage(event,kind){
+async function romOpenInfoPage(event,kind){
  event?.preventDefault();
- const pages={
- 'faq-user':['FAQ для пользователя','Здесь скоро появятся ответы на вопросы о регистрации, оценках и рецензиях.'],
- 'faq-artist':['FAQ для артиста','Здесь скоро появятся ответы на вопросы о загрузке музыки и модерации релизов.'],
- 'help':['Помощь','']
- };
- const [title,description]=pages[kind]||pages.help;
  if(kind==='help'){showHelpPage();return;}
- accountPage(title,`<div class="settingsCard"><p>${description}</p></div>`);
+ const category=kind==='faq-artist'?'artist':'user';
+ const title=category==='artist'?'FAQ для артиста':'FAQ для пользователя';
+ accountPage(title,'<div class="settingsCard"><div id="romFaqPublic">Загрузка…</div></div>');
+ try{
+  const {items}=await api(`/api/faq?category=${category}`);
+  document.querySelector('#romFaqPublic').innerHTML=items.length?items.map(item=>`<article class="romFaqItem"><h3>${escapeHtml(item.question)}</h3><p>${escapeHtml(item.answer).replace(/\n/g,'<br>')}</p></article>`).join(''):'<p>Ответы на вопросы скоро появятся.</p>';
+ }catch(e){toast(e.message)}
 }
+async function showAdminFaq(category){
+ if(!currentUser?.is_admin)return toast('Только администратор');
+ if(!category){accountPage('FAQ · управление','<div class="romAdminDashboardGrid"><button onclick="showAdminFaq(\'user\')"><strong>Для пользователей</strong><small>Вопросы и ответы</small></button><button onclick="showAdminFaq(\'artist\')"><strong>Для артистов</strong><small>Вопросы и ответы</small></button></div>');return;}
+ window.romFaqCategory=category;
+ accountPage(category==='user'?'FAQ · для пользователей':'FAQ · для артистов',`<div class="settingsCard"><button type="button" class="button secondary" onclick="showAdminFaq()">← Назад</button><h2>Вопросы и ответы</h2><div id="romAdminFaqList">Загрузка…</div><h3 id="romFaqFormTitle">Добавить вопрос</h3><form class="form" id="romFaqForm"><input type="hidden" name="id"><label>Вопрос<input name="question" maxlength="250" required></label><label>Ответ<textarea name="answer" maxlength="5000" rows="5" required></textarea></label><button type="submit" class="button">Сохранить</button><button type="button" class="button secondary" onclick="romFaqReset()">Очистить</button></form></div>`);
+ document.querySelector('#romFaqForm').addEventListener('submit',romFaqSave);
+ await romFaqLoad();
+}
+async function romFaqLoad(){
+ try{const {items}=await api(`/api/admin/faq?category=${window.romFaqCategory}`);window.romFaqItems=items;document.querySelector('#romAdminFaqList').innerHTML=items.length?items.map(i=>`<article class="romFaqItem"><h3>${escapeHtml(i.question)}</h3><p>${escapeHtml(i.answer)}</p><div class="romAdminRowControls"><button class="button secondary" onclick="romFaqEdit(${Number(i.id)})">Изменить</button><button class="button secondary" onclick="romFaqDelete(${Number(i.id)})">Удалить</button></div></article>`).join(''):'<p>Пока нет вопросов.</p>';}catch(e){toast(e.message)}
+}
+function romFaqEdit(id){const item=(window.romFaqItems||[]).find(i=>Number(i.id)===id);if(!item)return;const f=document.querySelector('#romFaqForm');f.elements.id.value=id;f.elements.question.value=item.question;f.elements.answer.value=item.answer;document.querySelector('#romFaqFormTitle').textContent='Редактировать вопрос';f.scrollIntoView({behavior:'smooth',block:'center'});}
+function romFaqReset(){document.querySelector('#romFaqForm')?.reset();document.querySelector('#romFaqFormTitle').textContent='Добавить вопрос';}
+async function romFaqSave(e){e.preventDefault();const f=e.currentTarget,id=f.elements.id.value;try{await api(id?`/api/admin/faq/${id}`:'/api/admin/faq',{method:id?'PATCH':'POST',body:JSON.stringify({category:window.romFaqCategory,question:f.elements.question.value.trim(),answer:f.elements.answer.value.trim()})});toast('FAQ сохранён');romFaqReset();await romFaqLoad()}catch(err){toast(err.message)}}
+async function romFaqDelete(id){if(!confirm('Удалить этот вопрос?'))return;try{await api(`/api/admin/faq/${id}`,{method:'DELETE'});toast('Вопрос удалён');await romFaqLoad()}catch(e){toast(e.message)}}
 
 function showHelpPage(){
  accountPage('Помощь',`<div class="settingsCard romHelpCard"><form class="form" id="romHelpForm"><label>Тема<input name="subject" maxlength="50" required autocomplete="off" placeholder="Кратко опиши проблему"></label><label>Ваш вопрос<textarea name="message" maxlength="300" rows="6" required placeholder="Расскажи, что случилось"></textarea></label><button type="submit" class="button">Отправить</button></form><div id="romHelpResult" class="mutedSmall"></div></div>`);
