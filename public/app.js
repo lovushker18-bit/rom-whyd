@@ -587,11 +587,11 @@ async function romSaveEditAlbum(e){
 }
 async function showTestPanel(){
  if(!currentUser?.is_admin)return toast('Только администратор');
- accountPage('Панель управления',`<div class="romAdminDashboard"><div class="romAdminDashboardGrid"><button onclick="showAdminAlbums()"><span class="romAdminDashboardIcon">◈</span><strong>Релизы</strong><small>Изменить или удалить</small></button><button onclick="showAdminReviews()"><span class="romAdminDashboardIcon">✎</span><strong>Рецензии</strong><small>Редактировать и удалить</small></button><button onclick="showAdminVerification()"><span class="romAdminDashboardIcon">✓</span><strong>Верификация</strong><small>Только по ID</small></button><button onclick="showAdminArtistById()"><span class="romAdminDashboardIcon">♫</span><strong>Артисты</strong><small>Выдать роль по ID</small></button><button onclick="showAdminNews()"><span class="romAdminDashboardIcon">▤</span><strong>Новости</strong><small>Публикация и редактирование</small></button><button onclick="showAdminUsernameRequests()"><span class="romAdminDashboardIcon">✉</span><strong>Смена ника</strong><small>Запросы пользователей</small></button></div></div>`);
+ accountPage('Панель управления',`<div class="romAdminDashboard"><div class="romAdminDashboardGrid"><button onclick="showAdminAlbums()"><span class="romAdminDashboardIcon">◈</span><strong>Релизы</strong><small>Изменить или удалить</small></button><button onclick="showAdminReviews()"><span class="romAdminDashboardIcon">✎</span><strong>Рецензии</strong><small>Редактировать и удалить</small></button><button onclick="showAdminHelp()"><span class="romAdminDashboardIcon">✉</span><strong>Помощь</strong><small>Обращения пользователей</small></button><button onclick="showAdminArtistById()"><span class="romAdminDashboardIcon">♫</span><strong>Артисты</strong><small>Выдать роль по ID</small></button><button onclick="showAdminNews()"><span class="romAdminDashboardIcon">▤</span><strong>Новости</strong><small>Публикация и редактирование</small></button><button onclick="showAdminUsernameRequests()"><span class="romAdminDashboardIcon">✉</span><strong>Смена ника</strong><small>Запросы пользователей</small></button></div></div>`);
 }
 async function showAdminNotifications(){
  if(!currentUser?.is_admin)return toast('Только администратор');
- accountPage('Уведомления',`<div class="romAdminDashboardGrid"><button onclick="showSubmissions()"><strong>Заявки на релизы</strong><small>Проверить музыку</small></button><button onclick="showAdminUsernameRequests()"><strong>Запросы смены ника</strong><small>Одобрить или отклонить</small></button></div>`);
+ accountPage('Уведомления',`<div class="romAdminDashboardGrid"><button onclick="showSubmissions()"><strong>Заявки на релизы</strong><small>Проверить музыку</small></button><button onclick="showAdminUsernameRequests()"><strong>Запросы смены ника</strong><small>Одобрить или отклонить</small></button><button onclick="showAdminHelp()"><strong>Помощь</strong><small>Обращения пользователей</small></button></div>`);
 }
 async function showAdminUsernameRequests(){
  if(!currentUser?.is_admin)return toast('Только администратор');
@@ -700,8 +700,20 @@ function romOpenInfoPage(event,kind){
  const pages={
  'faq-user':['FAQ для пользователя','Здесь скоро появятся ответы на вопросы о регистрации, оценках и рецензиях.'],
  'faq-artist':['FAQ для артиста','Здесь скоро появятся ответы на вопросы о загрузке музыки и модерации релизов.'],
- 'help':['Помощь','Раздел помощи готовится. Пока можно обратиться к администратору ROM.']
+ 'help':['Помощь','']
  };
  const [title,description]=pages[kind]||pages.help;
+ if(kind==='help'){showHelpPage();return;}
  accountPage(title,`<div class="settingsCard"><p>${description}</p></div>`);
 }
+
+function showHelpPage(){
+ accountPage('Помощь',`<div class="settingsCard romHelpCard"><form class="form" id="romHelpForm"><label>Тема<input name="subject" maxlength="50" required autocomplete="off" placeholder="Кратко опиши проблему"></label><label>Ваш вопрос<textarea name="message" maxlength="300" rows="6" required placeholder="Расскажи, что случилось"></textarea></label><button type="submit" class="button">Отправить</button></form><div id="romHelpResult" class="mutedSmall"></div></div>`);
+ document.querySelector('#romHelpForm').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget,btn=f.querySelector('[type="submit"]');btn.disabled=true;try{const d=new FormData(f);await api('/api/help',{method:'POST',body:JSON.stringify({subject:String(d.get('subject')).trim(),message:String(d.get('message')).trim()})});f.reset();document.querySelector('#romHelpResult').textContent='Обращение отправлено. Спасибо!';toast('Вопрос отправлен в поддержку')}catch(err){toast(err.message)}finally{btn.disabled=false}});
+}
+async function showAdminHelp(){
+ if(!currentUser?.is_admin)return toast('Только администратор');
+ accountPage('Помощь · обращения','<div class="settingsCard"><h2>Вопросы пользователей</h2><div id="romAdminHelpList">Загрузка…</div></div>');
+ try{const {requests}=await api('/api/admin/help');const el=document.querySelector('#romAdminHelpList');if(!el)return;el.innerHTML=requests.length?requests.map(r=>`<article class="romAdminReviewRow"><div><strong>${escapeHtml(r.subject)}</strong><p>${escapeHtml(r.message)}</p><small>${escapeHtml(r.username||'Пользователь')} · ID ${escapeHtml(String(r.public_id||'—'))} · ${new Date(r.created_at).toLocaleString('ru-RU')}</small><p class="mutedSmall">${r.status==='closed'?'Закрыто':'Новое обращение'}</p></div>${r.status!=='closed'?`<div class="romAdminRowControls"><button class="button secondary" onclick="romCloseHelp(${Number(r.id)})">Закрыть</button></div>`:''}</article>`).join(''):'<p>Обращений пока нет.</p>'}catch(err){toast(err.message)}
+}
+async function romCloseHelp(id){try{await api(`/api/admin/help/${id}`,{method:'PATCH',body:JSON.stringify({status:'closed'})});toast('Обращение закрыто');refreshPendingBadge();showAdminHelp()}catch(err){toast(err.message)}}

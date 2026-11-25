@@ -103,9 +103,28 @@ if(activity&&method==='GET'){
  for(const row of ratings.rows){const v=Number(row.rating);if(v>=1&&v<=90)bins[Math.min(8,Math.floor((v-1)/10))]++}
  return send(res,200,{reviews:reviews.rows,review_count:reviews.rows.length,rating_count:ratings.rowCount,release_count:releases.rows[0].count,distribution:bins});
 }
+if(path==='/api/help'&&method==='POST'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт, чтобы отправить вопрос.'});
+ const subject=String(b.subject||'').trim(),message=String(b.message||'').trim();
+ if(!subject||!message||subject.length>50||message.length>300)return send(res,400,{error:'Заполни тему и вопрос.'});
+ await q('INSERT INTO help_requests(user_id,subject,message) VALUES($1,$2,$3)',[u.id,subject,message]);
+ return send(res,201,{ok:true});
+}
+if(path==='/api/admin/help'&&method==='GET'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const r=await q(`SELECT h.id,h.subject,h.message,h.status,h.created_at,u.username,u.public_id FROM help_requests h JOIN users u ON u.id=h.user_id ORDER BY (h.status='pending') DESC,h.created_at DESC LIMIT 200`);
+ return send(res,200,{requests:r.rows});
+}
+const helpAction=path.match(/^\/api\/admin\/help\/(\d+)$/);
+if(helpAction&&method==='PATCH'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ if(b.status!=='closed')return send(res,400,{error:'Неверный статус.'});
+ const r=await q('UPDATE help_requests SET status=$1,reviewed_at=NOW() WHERE id=$2 RETURNING id',['closed',helpAction[1]]);
+ return r.rowCount?send(res,200,{ok:true}):send(res,404,{error:'Обращение не найдено.'});
+}
 if(path==='/api/admin/pending-count'&&method==='GET'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
- const r=await q("SELECT (SELECT COUNT(*) FROM track_submissions WHERE status='pending') + (SELECT COUNT(*) FROM username_change_requests WHERE status='pending') AS count");
+ const r=await q("SELECT (SELECT COUNT(*) FROM track_submissions WHERE status='pending') + (SELECT COUNT(*) FROM username_change_requests WHERE status='pending') + (SELECT COUNT(*) FROM help_requests WHERE status='pending') AS count");
  return send(res,200,{count:Number(r.rows[0].count)});
 }
 if(path==='/api/username-request'&&method==='GET'){
