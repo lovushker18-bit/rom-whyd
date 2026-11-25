@@ -1793,3 +1793,7 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 @media(min-width:801px){html:has(#pageView.romNewsFeedPage:not(.hidden)){scroll-snap-type:y mandatory;scroll-padding-top:76px;scroll-behavior:smooth;}}
 @media(max-width:800px){html:has(#pageView.romNewsFeedPage:not(.hidden)){scroll-snap-type:y proximity;scroll-padding-top:65px;}#pageView.romNewsFeedPage .romNewsSlide{min-height:calc(100svh - 65px);padding:24px 8px 50px;}#pageView.romNewsFeedPage .romNewsSlideCover{max-height:42svh;}#pageView.romNewsFeedPage .romNewsSlideInner{gap:16px;}}
 @media(prefers-reduced-motion:reduce){html:has(#pageView.romNewsFeedPage:not(.hidden)){scroll-behavior:auto;}}
+
+/* News v32: compact heading, muted date */
+#pageView.romNewsFeedPage .pageIntro{margin-bottom:0!important;}
+#pageView.romNewsFeedPage .romNewsSlideMeta time{color:rgba(255,255,255,.8);}
