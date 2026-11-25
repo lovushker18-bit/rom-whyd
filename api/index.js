@@ -214,8 +214,15 @@ if(adminVerify&&method==='PATCH'){
 const adminReview=path.match(/^\/api\/admin\/reviews\/(\d+)$/);
 if(adminReview&&method==='DELETE'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
- const r=await q('DELETE FROM reviews WHERE id=$1 RETURNING id,album_id,user_id',[adminReview[1]]);
- return r.rowCount?send(res,200,{ok:true,album_id:r.rows[0].album_id}):send(res,404,{error:'Рецензия не найдена.'});
+ const client=await db().connect();
+ try{
+  await client.query('BEGIN');
+  const r=await client.query('DELETE FROM reviews WHERE id=$1 RETURNING id,album_id,user_id',[adminReview[1]]);
+  if(!r.rowCount){await client.query('ROLLBACK');return send(res,404,{error:'Рецензия не найдена.'});}
+  await client.query('DELETE FROM ratings WHERE user_id=$1 AND album_id=$2',[r.rows[0].user_id,r.rows[0].album_id]);
+  await client.query('COMMIT');
+  return send(res,200,{ok:true,album_id:r.rows[0].album_id});
+ }catch(err){await client.query('ROLLBACK');throw err;}finally{client.release();}
 }
 if(adminReview&&method==='PATCH'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});

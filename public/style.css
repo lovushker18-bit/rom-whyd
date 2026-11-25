@@ -1797,3 +1797,12 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 /* News v32: compact heading, muted date */
 #pageView.romNewsFeedPage .pageIntro{margin-bottom:0!important;}
 #pageView.romNewsFeedPage .romNewsSlideMeta time{color:rgba(255,255,255,.8);}
+
+/* v33: journal first story begins directly beneath its heading; later stories still snap */
+#pageView.romNewsFeedPage .pageIntro{padding-top:0!important;padding-bottom:0!important;margin-bottom:0!important;}
+#pageView.romNewsFeedPage .pageIntro .eyebrow{margin-bottom:6px!important;}
+#pageView.romNewsFeedPage .pageIntro h1{margin-bottom:0!important;}
+#pageView.romNewsFeedPage .romNewsSlide:first-child{min-height:0!important;align-items:flex-start!important;padding-top:24px!important;padding-bottom:64px!important;scroll-snap-align:none!important;}
+#pageView.romNewsFeedPage .romNewsSlide:first-child .romNewsSlideInner{margin:0 auto!important;}
+#pageView.romNewsFeedPage .romNewsSlide+.romNewsSlide{min-height:calc(100svh - 76px);}
+@media(max-width:800px){#pageView.romNewsFeedPage .romNewsSlide:first-child{padding-top:16px!important;padding-bottom:42px!important;}}
