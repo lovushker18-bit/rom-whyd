@@ -2223,3 +2223,16 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romPlatformFields h3{margin:0;font-size:18px}.romPlatformFields p{margin:0 0 5px}
 .romPlatformFields label{min-width:0}.romPlatformFields input{width:100%;box-sizing:border-box}
 @media(max-width:600px){.romOverviewAction{align-items:flex-start;gap:12px}.romPlatformButtons{margin-left:0}.romPlatformButton{width:42px;height:42px;flex-basis:42px}}
+
+/* Flexible release dates */
+.romDateEditor{display:grid;gap:10px;min-width:0}
+.romDateEditor .romDateFields{min-width:0}
+.romDateEditor .romDateFields>input{width:100%;box-sizing:border-box}
+.romDateEditor [hidden]{display:none!important}
+.romDateEditor .releaseDateRow{display:flex;gap:10px;align-items:center}
+.romDateEditor .releaseDateRow input{min-width:0;flex:1}
+
+/* Author's optional note on release detail */
+.romAuthorComment{margin-top:22px;padding-top:20px;border-top:1px solid rgba(160,190,160,.15)}
+.romAuthorCommentLabel{display:block;font-size:12px;font-weight:800;letter-spacing:.05em;color:#b5c2b5}
+.romAuthorComment blockquote{margin:12px 0 0;font-size:16px;line-height:1.6;color:#e2e9e1;font-weight:500;white-space:pre-wrap;overflow-wrap:anywhere;font-style:italic}

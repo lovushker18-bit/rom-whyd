@@ -50,10 +50,21 @@ function validReleasePlatforms(raw){
  return out;
 }
 
+function validReleaseDate(value){
+ const v=String(value??'').trim();
+ if(v===''||v==='unknown'||/^[1-9]\d{3}$/.test(v)||/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(v))return v||'unknown';
+ if(/^[1-9]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(v)){
+  const [y,m,d]=v.split('-').map(Number),date=new Date(Date.UTC(y,m-1,d));
+  if(date.getUTCFullYear()===y&&date.getUTCMonth()===m-1&&date.getUTCDate()===d)return v;
+ }
+ throw Error('Некорректная дата релиза.');
+}
 const validRating=x=>Number.isInteger(Number(x))&&Number(x)>=1&&Number(x)<=90;
 const albumsSql=`SELECT a.*,ar.name artist_name,ROUND(AVG(r.rating),2) average_rating,COUNT(r.id)::int rating_count FROM albums a JOIN artists ar ON ar.id=a.artist_id LEFT JOIN ratings r ON r.album_id=a.id`;
 export default async function handler(req,res){try{
 const path=new URL(req.url,'https://rom.local').pathname,method=req.method,b=req.body||{};
+ if(b&&((path==='/api/albums'&&method==='POST')||(path==='/api/submissions'&&method==='POST')||(/^\/api\/albums\/\d+$/.test(path)&&method==='PATCH'))&&String(b.author_comment||'').trim().length>1500)return send(res,400,{error:'Комментарий автора — не более 1500 символов.'});
+ if(b&&Object.prototype.hasOwnProperty.call(b,'release_date')&&((path==='/api/albums'&&method==='POST')||(path==='/api/submissions'&&method==='POST')||(/^\/api\/albums\/\d+$/.test(path)&&method==='PATCH'))){try{b.release_date=validReleaseDate(b.release_date)}catch(e){return send(res,400,{error:e.message})}}
 if(path==='/api/blob-upload'&&method==='POST'){
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
  if(!u.email_verified)return send(res,403,{error:'Подтверди почту.'});
@@ -311,14 +322,14 @@ if(path==='/api/submissions'&&method==='POST'){
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
  if(!u.email_verified)return send(res,403,{error:'Сначала подтверди почту.'});
  if(!u.is_artist)return send(res,403,{error:'Отправлять треки могут только артисты с зелёной ноткой.'});
- const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),featuring=String(b.featuring||'').trim(),cover=String(b.cover_url||'').trim(),description=String(b.description||'').trim(),kind=String(b.release_type||'single'),tracks=b.tracks,color=String(b.background_color||'#8bff72');
- if(!title||title.length>150||!artist||artist.length>120||featuring.length>250||description.length>2000||cover&&(!/^https:\/\/[^\s]+$/i.test(cover)||cover.length>1500))return send(res,400,{error:'Проверь данные релиза.'});
+ const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),featuring=String(b.featuring||'').trim(),producer=String(b.producer||'').trim(),cover=String(b.cover_url||'').trim(),description=String(b.description||'').trim(),kind=String(b.release_type||'single'),tracks=b.tracks,color=String(b.background_color||'#8bff72');
+ if(!title||title.length>150||!artist||artist.length>120||featuring.length>250||producer.length>150||description.length>2000||cover&&(!/^https:\/\/[^\s]+$/i.test(cover)||cover.length>1500))return send(res,400,{error:'Проверь данные релиза.'});
  if(!/^#[0-9a-f]{6}$/i.test(color))return send(res,400,{error:'Некорректный цвет фона.'});
  if(!Array.isArray(tracks)||tracks.length<1||tracks.length>30||!['single','multi_single','ep','album'].includes(kind)||kind==='single'&&tracks.length!==1||kind==='multi_single'&&tracks.length!==2)return send(res,400,{error:'Тип релиза не соответствует количеству треков.'});
  const clean=[];
  for(const t of tracks){const name=String(t.title||'').trim(),ft=String(t.featuring||'').trim(),url=String(t.audio_url||'').trim();if(!name||name.length>200||ft.length>250||!/^https:\/\/[^\s]+$/i.test(url)||url.length>1500)return send(res,400,{error:'Проверь название и аудиофайл каждого трека.'});clean.push({title:name,featuring:ft,audio_url:url});}
  const count=await q(`SELECT COUNT(*)::int n FROM track_submissions WHERE user_id=$1 AND created_at>NOW()-INTERVAL '1 day'`,[u.id]);if(count.rows[0].n>=10)return send(res,429,{error:'Не больше 10 заявок в сутки.'});
- const r=await q('INSERT INTO track_submissions(user_id,title,artist_name,audio_url,cover_url,description,featuring,release_type,release_date,tracks_json,background_color,platform_links) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12::jsonb) RETURNING id',[u.id,title,artist,clean[0].audio_url,cover,description,featuring,kind,String(b.release_date||''),JSON.stringify(clean),color,JSON.stringify(platformLinks)]);
+ const r=await q('INSERT INTO track_submissions(user_id,title,artist_name,audio_url,cover_url,description,featuring,release_type,release_date,tracks_json,background_color,platform_links,producer,author_comment) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12::jsonb,$13,$14) RETURNING id',[u.id,title,artist,clean[0].audio_url,cover,description,featuring,kind,String(b.release_date||''),JSON.stringify(clean),color,JSON.stringify(platformLinks),producer,String(b.author_comment||'').trim()]);
  return send(res,201,{id:r.rows[0].id,status:'pending'});
 }
 if(path==='/api/submissions'&&method==='GET'){
@@ -349,8 +360,8 @@ if(submission&&method==='PATCH'){
   const actualKind=kind==='single'&&tracks.length===2?'multi_single':kind;
   if(actualKind==='single'&&tracks.length!==1||actualKind==='multi_single'&&tracks.length!==2)throw Error('Тип релиза не соответствует числу треков.');
   const ar=await client.query('INSERT INTO artists(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id',[t.artist_name]);
-  const album=await client.query(`INSERT INTO albums(artist_id,title,cover_url,release_date,description,featuring,audio_url,release_type,background_color,platform_links)
-   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb) RETURNING id`,[ar.rows[0].id,t.title,t.cover_url||'',t.release_date||'',t.description||'',t.featuring||'',tracks[0].audio_url,actualKind,t.background_color||'#8bff72',JSON.stringify(t.platform_links||{})]);
+  const album=await client.query(`INSERT INTO albums(artist_id,title,cover_url,release_date,description,featuring,audio_url,release_type,background_color,platform_links,producer,author_comment)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12) RETURNING id`,[ar.rows[0].id,t.title,t.cover_url||'',t.release_date||'',t.description||'',t.featuring||'',tracks[0].audio_url,actualKind,t.background_color||'#8bff72',JSON.stringify(t.platform_links||{}),t.producer||'',t.author_comment||'']);
   const albumId=album.rows[0].id;
   for(let i=0;i<tracks.length;i++)await client.query('INSERT INTO tracks(album_id,title,track_number,featuring,audio_url) VALUES($1,$2,$3,$4,$5)',[albumId,String(tracks[i].title).trim(),i+1,String(tracks[i].featuring||''),String(tracks[i].audio_url)]);
   await client.query("UPDATE track_submissions SET status='approved',reviewed_at=NOW(),reviewed_by=$1,published_album_id=$2 WHERE id=$3",[u.id,albumId,submission[1]]);
@@ -446,8 +457,8 @@ if(path==='/api/admin/albums'&&method==='GET'){
 if(album&&method==='PATCH'){
  let platformLinks;try{platformLinks=validReleasePlatforms(b.platform_links)}catch(e){return send(res,400,{error:e.message})}
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
- const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),featuring=String(b.featuring||'').trim(),cover=String(b.cover_url||'').trim(),color=String(b.background_color||'#8bff72');
- if(!title||title.length>200||!artist||artist.length>120||featuring.length>250)return send(res,400,{error:'Проверь данные релиза.'});
+ const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),featuring=String(b.featuring||'').trim(),producer=String(b.producer||'').trim(),cover=String(b.cover_url||'').trim(),color=String(b.background_color||'#8bff72');
+ if(!title||title.length>200||!artist||artist.length>120||featuring.length>250||producer.length>150)return send(res,400,{error:'Проверь данные релиза.'});
  if(cover&&!/^https:\/\/[^\s]+$/i.test(cover))return send(res,400,{error:'Неверный адрес обложки.'});
  if(!/^#[0-9a-f]{6}$/i.test(color))return send(res,400,{error:'Некорректный цвет фона.'});
  const tracks=b.tracks,kind=String(b.release_type||'');
@@ -456,7 +467,7 @@ if(album&&method==='PATCH'){
  const client=await db().connect();try{await client.query('BEGIN');
  const exists=await client.query('SELECT id FROM albums WHERE id=$1 FOR UPDATE',[album[1]]);if(!exists.rowCount){await client.query('ROLLBACK');return send(res,404,{error:'Релиз не найден.'})}
  const ar=await client.query('INSERT INTO artists(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id',[artist]);
- await client.query('UPDATE albums SET artist_id=$1,title=$2,cover_url=$3,release_date=$4,description=$5,featuring=$6,audio_url=$7,release_type=$8,background_color=$9,platform_links=$11::jsonb WHERE id=$10',[ar.rows[0].id,title,cover,String(b.release_date||'').slice(0,30),String(b.description||'').slice(0,5000),featuring,tracks[0].audio_url,kind,color,album[1],JSON.stringify(platformLinks)]);
+ await client.query('UPDATE albums SET artist_id=$1,title=$2,cover_url=$3,release_date=$4,description=$5,featuring=$6,audio_url=$7,release_type=$8,background_color=$9,platform_links=$11::jsonb,producer=$12,author_comment=$13 WHERE id=$10',[ar.rows[0].id,title,cover,String(b.release_date||'').slice(0,30),String(b.description||'').slice(0,5000),featuring,tracks[0].audio_url,kind,color,album[1],JSON.stringify(platformLinks),producer,String(b.author_comment||'').trim()]);
  await client.query('DELETE FROM tracks WHERE album_id=$1',[album[1]]);
  for(let i=0;i<tracks.length;i++)await client.query('INSERT INTO tracks(album_id,title,track_number,featuring,audio_url) VALUES($1,$2,$3,$4,$5)',[album[1],String(tracks[i].title).trim(),i+1,String(tracks[i].featuring||'').trim(),String(tracks[i].audio_url)]);
  await client.query('COMMIT');return send(res,200,{id:Number(album[1])});}catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
@@ -465,9 +476,9 @@ if(path==='/api/albums'&&method==='POST'){
  let platformLinks;try{platformLinks=validReleasePlatforms(b.platform_links)}catch(e){return send(res,400,{error:e.message})}
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
  if(!u.is_admin)return send(res,403,{error:'Публиковать релизы напрямую может только администратор. Артисты отправляют их на модерацию.'});
- const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),featuring=String(b.featuring||'').trim(),cover=String(b.cover_url||'').trim();
+ const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),featuring=String(b.featuring||'').trim(),producer=String(b.producer||'').trim(),cover=String(b.cover_url||'').trim();
  const tracks=b.tracks,kind=b.release_type,color=String(b.background_color||'#8bff72');if(!/^#[0-9a-f]{6}$/i.test(color))return send(res,400,{error:'Некорректный цвет фона.'});
- if(!title||title.length>200||!artist||artist.length>120||featuring.length>250)return send(res,400,{error:'Укажи название и исполнителя. Проверь длину полей.'});
+ if(!title||title.length>200||!artist||artist.length>120||featuring.length>250||producer.length>150)return send(res,400,{error:'Укажи название и исполнителя. Проверь длину полей.'});
  if(cover&&!/^https:\/\/[^\s]+$/i.test(cover))return send(res,400,{error:'Некорректная ссылка на обложку.'});
  if(!Array.isArray(tracks)||tracks.length<1||tracks.length>30)return send(res,400,{error:'Треклист должен содержать от 1 до 30 треков.'});
  if(!['single','multi_single','ep','album'].includes(kind)||kind==='single'&&tracks.length!==1||kind==='multi_single'&&tracks.length!==2)return send(res,400,{error:'Тип релиза не соответствует количеству треков.'});
@@ -475,7 +486,7 @@ if(path==='/api/albums'&&method==='POST'){
  const client=await db().connect();try{
   await client.query('BEGIN');
   const ar=await client.query('INSERT INTO artists(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id',[artist]);
-  const r=await client.query('INSERT INTO albums(artist_id,title,cover_url,release_date,description,featuring,audio_url,release_type,background_color,platform_links) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb) RETURNING id',[ar.rows[0].id,title,cover,String(b.release_date||''),String(b.description||'').slice(0,5000),featuring,tracks[0].audio_url,kind,color,JSON.stringify(platformLinks)]);
+  const r=await client.query('INSERT INTO albums(artist_id,title,cover_url,release_date,description,featuring,audio_url,release_type,background_color,platform_links,producer,author_comment) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12) RETURNING id',[ar.rows[0].id,title,cover,String(b.release_date||''),String(b.description||'').slice(0,5000),featuring,tracks[0].audio_url,kind,color,JSON.stringify(platformLinks),producer,String(b.author_comment||'').trim()]);
   for(let i=0;i<tracks.length;i++)await client.query('INSERT INTO tracks(album_id,title,track_number,featuring,audio_url) VALUES($1,$2,$3,$4,$5)',[r.rows[0].id,String(tracks[i].title).trim(),i+1,String(tracks[i].featuring||'').trim(),tracks[i].audio_url]);
   await client.query('COMMIT');return send(res,201,{id:r.rows[0].id});
  }catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
