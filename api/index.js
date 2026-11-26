@@ -178,9 +178,40 @@ if(path==='/api/help'&&method==='POST'){
  await q('INSERT INTO help_requests(user_id,subject,message) VALUES($1,$2,$3)',[u.id,subject,message]);
  return send(res,201,{ok:true});
 }
+// One administrator answer and one optional user follow-up per help request.
+if(path==='/api/help/mine'&&method==='GET'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ const r=await q('SELECT id,subject,message,admin_reply,user_followup,created_at,replied_at FROM help_requests WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50',[u.id]);
+ return send(res,200,{requests:r.rows});
+}
+const helpThread=path.match(/^\/api\/help\/(\d+)$/);
+if(helpThread&&method==='GET'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ const r=await q('SELECT id,user_id,subject,message,admin_reply,user_followup,created_at,replied_at,followed_up_at FROM help_requests WHERE id=$1',[helpThread[1]]);
+ if(!r.rowCount||(!u.is_admin&&String(r.rows[0].user_id)!==String(u.id)))return send(res,404,{error:'Обращение не найдено.'});
+ return send(res,200,{request:r.rows[0]});
+}
+if(helpThread&&method==='POST'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ const message=String(b.message||'').trim();if(!message||message.length>2000)return send(res,400,{error:'Ответ должен содержать от 1 до 2000 символов.'});
+ const r=await q(`UPDATE help_requests SET user_followup=$1,followed_up_at=NOW() WHERE id=$2 AND user_id=$3 AND admin_reply IS NOT NULL AND user_followup IS NULL RETURNING id`,[message,helpThread[1],u.id]);
+ return r.rowCount?send(res,200,{ok:true}):send(res,409,{error:'Ответить можно один раз после ответа администрации.'});
+}
+const adminHelpReply=path.match(/^\/api\/admin\/help\/(\d+)\/reply$/);
+if(adminHelpReply&&method==='POST'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const message=String(b.message||'').trim();if(!message||message.length>2000)return send(res,400,{error:'Ответ должен содержать от 1 до 2000 символов.'});
+ const client=await db().connect();try{
+  await client.query('BEGIN');
+  const r=await client.query(`UPDATE help_requests SET admin_reply=$1,replied_at=NOW(),status='closed',reviewed_at=NOW() WHERE id=$2 AND admin_reply IS NULL RETURNING id,user_id`,[message,adminHelpReply[1]]);
+  if(!r.rowCount){await client.query('ROLLBACK');return send(res,409,{error:'На это обращение уже ответили или оно не найдено.'});}
+  await client.query('INSERT INTO help_reply_notifications(user_id,request_id) VALUES($1,$2)',[r.rows[0].user_id,r.rows[0].id]);
+  await client.query('COMMIT');return send(res,200,{ok:true});
+ }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+}
 if(path==='/api/admin/help'&&method==='GET'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
- const r=await q(`SELECT h.id,h.subject,h.message,h.status,h.created_at,u.username,u.public_id FROM help_requests h JOIN users u ON u.id=h.user_id ORDER BY (h.status='pending') DESC,h.created_at DESC LIMIT 200`);
+ const r=await q(`SELECT h.id,h.subject,h.message,h.status,h.created_at,h.admin_reply,h.user_followup,u.username,u.public_id FROM help_requests h JOIN users u ON u.id=h.user_id ORDER BY (h.status='pending') DESC,h.created_at DESC LIMIT 200`);
  return send(res,200,{requests:r.rows});
 }
 const helpAction=path.match(/^\/api\/admin\/help\/(\d+)$/);
@@ -192,11 +223,18 @@ if(helpAction&&method==='PATCH'){
 }
 if(path==='/api/notifications'&&method==='GET'){
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
- const unread=await q('SELECT COUNT(*)::int AS count FROM user_notifications WHERE user_id=$1 AND read_at IS NULL',[u.id]);
+ const unread=await q('SELECT (SELECT COUNT(*) FROM user_notifications WHERE user_id=$1 AND read_at IS NULL)+(SELECT COUNT(*) FROM help_reply_notifications WHERE user_id=$1 AND read_at IS NULL) AS count',[u.id]);
  if(new URL(req.url,'https://rom.local').searchParams.get('count')==='1')return send(res,200,{unread:unread.rows[0].count});
  const items=await q(`SELECT n.id,n.kind,n.album_id,n.review_id,n.created_at,n.read_at,u.username AS actor_username,a.title AS album_title
  FROM user_notifications n JOIN users u ON u.id=n.actor_id JOIN albums a ON a.id=n.album_id WHERE n.user_id=$1 ORDER BY n.created_at DESC LIMIT 80`,[u.id]);
- return send(res,200,{unread:unread.rows[0].count,items:items.rows});
+ const helpItems=await q(`SELECT n.id,n.request_id,n.created_at,n.read_at,h.subject FROM help_reply_notifications n JOIN help_requests h ON h.id=n.request_id WHERE n.user_id=$1 ORDER BY n.created_at DESC LIMIT 80`,[u.id]);
+ return send(res,200,{unread:unread.rows[0].count,items:[...items.rows.map(x=>({...x,type:'release'})),...helpItems.rows.map(x=>({...x,type:'help'}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,80)});
+}
+const helpNotificationRead=path.match(/^\/api\/help-notifications\/(\d+)\/read$/);
+if(helpNotificationRead&&method==='POST'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ await q('UPDATE help_reply_notifications SET read_at=COALESCE(read_at,NOW()) WHERE id=$1 AND user_id=$2',[helpNotificationRead[1],u.id]);
+ return send(res,200,{ok:true});
 }
 const notificationRead=path.match(/^\/api\/notifications\/(\d+)\/read$/);
 if(notificationRead&&method==='POST'){

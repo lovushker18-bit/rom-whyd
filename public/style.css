@@ -2193,3 +2193,9 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
   #homeView .heroCopy h1 {font-size:clamp(46px,11.4vw,58px)!important;}
   #homeView .heroText {font-size:14px!important;line-height:1.65!important;}
 }
+
+/* Help replies: email-like one-time conversation */
+.romHelpThreadOverlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:18px;overflow-y:auto}
+.romHelpThread{position:relative;width:min(660px,100%);max-height:90vh;overflow-y:auto;background:#111712;border:1px solid #394b32;border-radius:18px;padding:clamp(22px,4vw,36px);box-shadow:0 25px 100px #000b;color:#f4f7f1}
+.romHelpThread>small{color:#b8ff62;letter-spacing:.15em;font-weight:800}.romHelpThread h2{margin:12px 40px 24px 0;overflow-wrap:anywhere}.romHelpThreadClose{position:absolute;right:18px;top:12px;background:transparent;border:0;color:#e8eee5;font-size:30px}
+.romHelpMessage{padding:16px 18px;margin:12px 0;border:1px solid #303d30;border-radius:12px;background:#0b110c;overflow-wrap:anywhere}.romHelpMessage strong{color:#b9ff76;font-size:13px}.romHelpMessage p{white-space:pre-wrap;line-height:1.65;margin:9px 0 0}.romHelpAdminMessage{background:#192319;border-color:#4a6a3b}.romHelpThread .form{margin-top:22px}.romHelpThread textarea,.romAdminHelpReplyForm textarea{width:100%;box-sizing:border-box;resize:vertical}.romAdminHelpReplyForm{display:grid;gap:10px;margin-top:16px;max-width:600px}.romAdminHelpReplyForm button{justify-self:start}.romHelpHistoryItem{display:flex;flex-direction:column;align-items:flex-start;width:100%;padding:13px 0;border:0;border-bottom:1px solid #303a30;background:none;color:inherit;text-align:left;cursor:pointer;gap:6px}.romHelpHistoryItem:hover strong{color:#b8ff62}.romHelpHistoryItem small{color:#9aa797}
