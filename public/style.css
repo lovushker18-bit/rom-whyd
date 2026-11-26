@@ -1849,7 +1849,6 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romFaqItem {padding:20px 0;border-bottom:1px solid rgba(185,255,110,.16);}
 .romFaqItem h3 {margin:0 0 9px;font-size:19px;}
 .romFaqItem p {white-space:pre-wrap;line-height:1.65;margin:0 0 12px;color:#c9d0c7;}
-<<<<<<< HEAD
 
 /* Artist emblem alignment: center of icon exactly matches center of username. */
 .romProfileIntro h1 {
@@ -1917,5 +1916,33 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
     position: relative !important;
     left: -8px !important;
 }
-=======
->>>>>>> c8b1cbce9793d544fa0b8d0684360c4453ef7305
+
+/* ROM: release-specific RGB styling */
+#releasePage .romReleaseCover{
+ border-color:color-mix(in srgb,var(--page-glow,#8bff72) 48%,#151915)!important;
+ box-shadow:0 20px 60px #0008!important;
+}
+#releasePage .romOverviewPanel{
+ background:color-mix(in srgb,var(--page-glow,#8bff72) 20%,#111715)!important;
+ border-color:color-mix(in srgb,var(--page-glow,#8bff72) 35%,#202620)!important;
+}
+#releasePage .romOverviewBlock+.romOverviewBlock{
+ border-color:color-mix(in srgb,var(--page-glow,#8bff72) 18%,#27302b)!important;
+}
+#releasePage .romReleaseFeaturing{font-size:.77em;font-weight:500;color:#9baaa4;margin-left:7px;white-space:normal}
+/* Low-profile review discussion and reactions */
+#releasePage .romReviewSocial{display:flex;gap:14px;align-items:center;margin:14px 0 0 65px}
+#releasePage .romReviewReaction,#releasePage .romReviewCommentToggle{background:none;border:0;padding:4px 5px;color:#86968b;font-size:14px;font-weight:650;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+#releasePage .romReviewReaction:hover,#releasePage .romReviewCommentToggle:hover,#releasePage .romReviewReaction.is-selected,#releasePage .romReviewCommentToggle.is-selected{color:var(--page-glow,#8bff72)}
+#releasePage .romReviewReaction span,#releasePage .romReviewCommentToggle span{font-size:12px}
+#releasePage .romReviewDiscussion{margin:12px 0 0 65px;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--page-glow,#8bff72) 17%,#303630)}
+#releasePage .romReviewDiscussion.hidden{display:none!important}
+#releasePage .romReviewCommentList{display:grid;gap:12px;margin-bottom:14px}
+#releasePage .romReviewComment{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:13px;color:#c7d0c8;overflow-wrap:anywhere}
+#releasePage .romCommentAuthor{background:none;border:0;padding:0;color:#f1f5f0;font-weight:750;cursor:pointer}
+#releasePage .romCommentsEmpty{color:#859187;font-size:13px;margin:0 0 12px}
+#releasePage .romCommentForm{display:flex;gap:8px;align-items:center}
+#releasePage .romCommentForm input{min-width:0;flex:1;background:#101611;border:1px solid #344138;border-radius:9px;padding:10px 12px;color:#f4f6f3;font:inherit;font-size:13px}
+#releasePage .romCommentForm button{border:1px solid #344138;border-radius:9px;background:#19231b;color:#b3c6b5;padding:9px 13px;cursor:pointer}
+#releasePage .romCommentForm button:hover{color:var(--page-glow,#8bff72)}
+@media(max-width:740px){#releasePage .romReviewSocial,#releasePage .romReviewDiscussion{margin-left:0}}
