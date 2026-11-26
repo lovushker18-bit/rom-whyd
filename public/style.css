@@ -2057,26 +2057,86 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
   }
 }
 
-/* Featured release: align label text, title and artist on one left edge.
-   The decorative dot is positioned independently and does not shift the label. */
+
+/* ROM targeted visual fixes: featured release, artist emblem, settings controls. */
 .heroCard .featuredInfo .featuredLabel {
-  position: relative;
-  gap: 0;
+  position:relative;
+  padding-left:13px;
+  gap:0;
 }
 .heroCard .featuredInfo .featuredLabel::before {
-  position: absolute;
-  left: -13px;
-  top: 50%;
-  transform: translateY(-50%);
-  margin: 0;
+  position:absolute;
+  left:0;
+  top:50%;
+  transform:translateY(-50%);
+  margin:0;
 }
-.heroCard .featuredInfo .featuredNames {
-  margin: 0;
-  padding: 0;
+/* Wider title letterforms without changing the rest of the card. */
+.heroCard .featuredNames h2 {
+  font-family:Arial,Helvetica,sans-serif!important;
+  font-stretch:normal;
+  font-weight:800!important;
+  letter-spacing:-.025em!important;
+  font-size:20px;
 }
-.heroCard .featuredInfo .featuredNames h2,
-.heroCard .featuredInfo .featuredNames p {
-  margin-left: 0;
-  padding-left: 0;
-  text-indent: 0;
+/* Move only the profile artist mark right; review badges stay untouched. */
+.romProfileIntro h1 .romProfileArtistMark {
+  left:0!important;
+  right:auto!important;
+  margin-left:9px!important;
 }
+/* Make avatar actions the visual priority on settings page. */
+.romSettingsRefresh .settingsCard input[type=file] {
+  display:block;
+  width:100%;
+  border:1.5px dashed #84d454!important;
+  background:linear-gradient(110deg,#132417,#0b140d)!important;
+  padding:15px!important;
+  border-radius:13px!important;
+  color:#c6d6c5;
+  cursor:pointer;
+}
+.romSettingsRefresh .settingsCard input[type=file]::file-selector-button {
+  background:#b1ff70;
+  color:#10180e;
+  border:0;
+  border-radius:9px;
+  padding:10px 15px;
+  margin-right:13px;
+  font:700 13px Arial,sans-serif;
+  cursor:pointer;
+}
+.romSettingsRefresh .romAvatarSettingsMeta .romDecorateAvatar {
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  padding:11px 18px!important;
+  background:#aaff65!important;
+  color:#0c1609!important;
+  border:1px solid #c4ff99!important;
+  font-weight:800!important;
+  box-shadow:0 5px 22px #aaff6522!important;
+}
+.romSettingsRefresh .romAvatarSettingsMeta .romDecorateAvatar::before {
+  content:'✦';
+  font-size:18px;
+  line-height:1;
+}
+.romSettingsRefresh .romAvatarSettingsMeta .romPrivateId {
+  gap:8px!important;
+  padding:6px 10px!important;
+  background:transparent!important;
+  border:1px solid #2b392f!important;
+  opacity:.72;
+  font-size:12px!important;
+}
+.romSettingsRefresh .romAvatarSettingsMeta .romPrivateId strong {
+  font-size:13px!important;
+  font-weight:650!important;
+}
+.romSettingsRefresh .romAvatarSettingsMeta .romPrivateId .button {
+  min-height:29px!important;
+  padding:4px 9px!important;
+  font-size:11px!important;
+}
+.romSettingsRefresh .romAvatarSettingsMeta .romPrivateId:hover {opacity:1;}
