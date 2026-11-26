@@ -499,7 +499,6 @@ if(path==='/api/reviews'&&method==='POST'){
  if(!Number.isSafeInteger(albumId)||albumId<1)return send(res,400,{error:'Некорректный релиз.'});
  if((title||body)&&!u.email_verified)return send(res,403,{error:'Подтверди почту, чтобы писать рецензии.'});
  if(title&&!body)return send(res,400,{error:'Добавь текст рецензии или очисти заголовок.'});
- if(b.anonymous===true&&!body)return send(res,400,{error:'Анонимность доступна для рецензий с текстом.'});
  const client=await db().connect();try{
   await client.query('BEGIN');
   const albumInfo=await client.query('SELECT release_type FROM albums WHERE id=$1',[albumId]);
@@ -521,11 +520,11 @@ if(path==='/api/reviews'&&method==='POST'){
   }
   await client.query('INSERT INTO ratings(user_id,album_id,rating) VALUES($1,$2,$3) ON CONFLICT(user_id,album_id) DO UPDATE SET rating=EXCLUDED.rating,updated_at=NOW()',[u.id,albumId,rating]);
   const previous=await client.query('SELECT id FROM reviews WHERE user_id=$1 AND album_id=$2 FOR UPDATE',[u.id,albumId]);
-  if(body){
+  if(body || b.anonymous===true){
    if(previous.rowCount)await client.query('UPDATE reviews SET rating=$1,title=$2,body=$3,is_anonymous=$4 WHERE id=$5',[rating,title.slice(0,150),body.slice(0,10000),b.anonymous===true,previous.rows[0].id]);
    else{
     const created=await client.query('INSERT INTO reviews(user_id,album_id,rating,title,body,is_anonymous) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[u.id,albumId,rating,title.slice(0,150),body.slice(0,10000),b.anonymous===true]);
-    await client.query(`INSERT INTO user_notifications(user_id,actor_id,album_id,review_id,kind)
+    if(body)await client.query(`INSERT INTO user_notifications(user_id,actor_id,album_id,review_id,kind)
      SELECT DISTINCT rt.user_id,$1::bigint,$2::bigint,$3::bigint,'review' FROM ratings rt WHERE rt.album_id=$2::bigint AND rt.user_id<>$1::bigint`,[u.id,albumId,created.rows[0].id]);
    }
   }else if(previous.rowCount)await client.query('DELETE FROM reviews WHERE id=$1',[previous.rows[0].id]);
