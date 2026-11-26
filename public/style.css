@@ -2199,3 +2199,27 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romHelpThread{position:relative;width:min(660px,100%);max-height:90vh;overflow-y:auto;background:#111712;border:1px solid #394b32;border-radius:18px;padding:clamp(22px,4vw,36px);box-shadow:0 25px 100px #000b;color:#f4f7f1}
 .romHelpThread>small{color:#b8ff62;letter-spacing:.15em;font-weight:800}.romHelpThread h2{margin:12px 40px 24px 0;overflow-wrap:anywhere}.romHelpThreadClose{position:absolute;right:18px;top:12px;background:transparent;border:0;color:#e8eee5;font-size:30px}
 .romHelpMessage{padding:16px 18px;margin:12px 0;border:1px solid #303d30;border-radius:12px;background:#0b110c;overflow-wrap:anywhere}.romHelpMessage strong{color:#b9ff76;font-size:13px}.romHelpMessage p{white-space:pre-wrap;line-height:1.65;margin:9px 0 0}.romHelpAdminMessage{background:#192319;border-color:#4a6a3b}.romHelpThread .form{margin-top:22px}.romHelpThread textarea,.romAdminHelpReplyForm textarea{width:100%;box-sizing:border-box;resize:vertical}.romAdminHelpReplyForm{display:grid;gap:10px;margin-top:16px;max-width:600px}.romAdminHelpReplyForm button{justify-self:start}.romHelpHistoryItem{display:flex;flex-direction:column;align-items:flex-start;width:100%;padding:13px 0;border:0;border-bottom:1px solid #303a30;background:none;color:inherit;text-align:left;cursor:pointer;gap:6px}.romHelpHistoryItem:hover strong{color:#b8ff62}.romHelpHistoryItem small{color:#9aa797}
+
+/* ROM: per-track rating and anonymous review */
+.romTrackRatingFields{display:grid;gap:12px;padding:15px;border:1px solid #344434;border-radius:12px;background:#0e150e}
+.romTrackRatingField{display:flex!important;flex-direction:row!important;align-items:center;justify-content:space-between;gap:14px}
+.romTrackRatingField span{flex:1;min-width:0;overflow-wrap:anywhere}
+.romTrackRatingField input{width:94px!important;flex:0 0 94px;text-align:center}
+.romTrackAverage{color:#b8ff6a;font-size:15px}
+.romAnonymousChoice{display:flex!important;flex-direction:row!important;align-items:center;gap:10px;color:#b7c0b4!important}
+.romAnonymousChoice input{width:18px!important;height:18px;accent-color:#b8ff6a}
+.romAnonymousName{color:#9b9b9b!important;font-style:italic;font-weight:500;font-size:clamp(11px,1.7vw,14px);overflow-wrap:anywhere}
+.romReviewAvatar:disabled{cursor:default!important}
+@media(max-width:600px){.romTrackRatingField{align-items:flex-start}.romTrackRatingField input{width:76px!important;flex-basis:76px}}
+
+
+/* Release links: compact square buttons to the right of rating action */
+.romOverviewAction{display:flex!important;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.romPlatformButtons{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
+.romPlatformButton{width:46px;height:46px;flex:0 0 46px;display:grid;place-items:center;box-sizing:border-box;background:#151e1a;border:1px solid #334038;border-radius:9px;color:#f3f6f1!important;text-decoration:none!important;transition:border-color .18s,background .18s,transform .18s}
+.romPlatformButton span{font-size:13px;letter-spacing:-.04em;font-weight:900}
+.romPlatformButton:hover{border-color:#b7ff70;background:#233022;transform:translateY(-2px)}
+.romPlatformFields{display:grid;gap:12px;margin:12px 0 20px}
+.romPlatformFields h3{margin:0;font-size:18px}.romPlatformFields p{margin:0 0 5px}
+.romPlatformFields label{min-width:0}.romPlatformFields input{width:100%;box-sizing:border-box}
+@media(max-width:600px){.romOverviewAction{align-items:flex-start;gap:12px}.romPlatformButtons{margin-left:0}.romPlatformButton{width:42px;height:42px;flex-basis:42px}}

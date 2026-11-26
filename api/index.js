@@ -26,6 +26,30 @@ async function sendVerification(user){
  await q(`INSERT INTO email_tokens(token_hash,user_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '10 minutes')`,[codeHash,user.id]);
 }
 
+
+const releasePlatformDomains={
+ telegram:['t.me','telegram.me','telegram.org'],
+ soundcloud:['soundcloud.com','snd.sc','on.soundcloud.com'],
+ vk:['vk.com','vk.ru','vkontakte.ru'],
+ spotify:['spotify.com','spotify.link'],
+ youtube:['youtube.com','youtu.be','youtube-nocookie.com','music.youtube.com']
+};
+function validReleasePlatforms(raw){
+ if(raw==null)return {};
+ if(typeof raw!=='object'||Array.isArray(raw))throw Error('Некорректные ссылки на площадки.');
+ const out={};
+ for(const [key,value] of Object.entries(raw)){
+  if(!Object.hasOwn(releasePlatformDomains,key))throw Error('Неизвестная площадка.');
+  if(value==null||value==='')continue;
+  if(typeof value!=='string'||value.length>1000)throw Error('Некорректная ссылка '+key+'.');
+  let url;try{url=new URL(value)}catch{throw Error('Некорректная ссылка '+key+'.')}
+  const host=url.hostname.toLowerCase().replace(/\.$/,'');
+  if(url.protocol!=='https:'||url.username||url.password||url.port||!releasePlatformDomains[key].some(domain=>host===domain||host.endsWith('.'+domain)))throw Error('Для '+key+' разрешены только официальные HTTPS-ссылки.');
+  out[key]=url.toString();
+ }
+ return out;
+}
+
 const validRating=x=>Number.isInteger(Number(x))&&Number(x)>=1&&Number(x)<=90;
 const albumsSql=`SELECT a.*,ar.name artist_name,ROUND(AVG(r.rating),2) average_rating,COUNT(r.id)::int rating_count FROM albums a JOIN artists ar ON ar.id=a.artist_id LEFT JOIN ratings r ON r.album_id=a.id`;
 export default async function handler(req,res){try{
@@ -164,7 +188,7 @@ if(activity&&method==='GET'){
  if(!person.rowCount)return send(res,404,{error:'Пользователь не найден.'});
  const reviews=await q(`SELECT rv.id,rv.album_id,rv.title,rv.rating,rv.created_at,a.title AS album_title,a.cover_url,ar.name AS artist_name
  FROM reviews rv JOIN albums a ON a.id=rv.album_id JOIN artists ar ON ar.id=a.artist_id
- WHERE rv.user_id=$1 AND NULLIF(TRIM(rv.body),'') IS NOT NULL ORDER BY rv.created_at DESC LIMIT 100`,[userId]);
+ WHERE rv.user_id=$1 AND COALESCE(rv.is_anonymous,FALSE)=FALSE AND NULLIF(TRIM(rv.body),'') IS NOT NULL ORDER BY rv.created_at DESC LIMIT 100`,[userId]);
  const ratings=await q('SELECT rating FROM ratings WHERE user_id=$1',[userId]);
  const releases=await q('SELECT COUNT(*)::int AS count FROM albums a JOIN artists ar ON ar.id=a.artist_id WHERE LOWER(ar.name)=LOWER($1)',[person.rows[0].username]);
  const bins=Array(9).fill(0);
@@ -283,6 +307,7 @@ if(nameRequest&&method==='PATCH'){
  }catch(e){await client.query('ROLLBACK');if(e.code==='23505')return send(res,409,{error:'Этот ник уже занят другим пользователем.'});throw e}finally{client.release()}
 }
 if(path==='/api/submissions'&&method==='POST'){
+ let platformLinks;try{platformLinks=validReleasePlatforms(b.platform_links)}catch(e){return send(res,400,{error:e.message})}
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
  if(!u.email_verified)return send(res,403,{error:'Сначала подтверди почту.'});
  if(!u.is_artist)return send(res,403,{error:'Отправлять треки могут только артисты с зелёной ноткой.'});
@@ -293,7 +318,7 @@ if(path==='/api/submissions'&&method==='POST'){
  const clean=[];
  for(const t of tracks){const name=String(t.title||'').trim(),ft=String(t.featuring||'').trim(),url=String(t.audio_url||'').trim();if(!name||name.length>200||ft.length>250||!/^https:\/\/[^\s]+$/i.test(url)||url.length>1500)return send(res,400,{error:'Проверь название и аудиофайл каждого трека.'});clean.push({title:name,featuring:ft,audio_url:url});}
  const count=await q(`SELECT COUNT(*)::int n FROM track_submissions WHERE user_id=$1 AND created_at>NOW()-INTERVAL '1 day'`,[u.id]);if(count.rows[0].n>=10)return send(res,429,{error:'Не больше 10 заявок в сутки.'});
- const r=await q('INSERT INTO track_submissions(user_id,title,artist_name,audio_url,cover_url,description,featuring,release_type,release_date,tracks_json,background_color) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11) RETURNING id',[u.id,title,artist,clean[0].audio_url,cover,description,featuring,kind,String(b.release_date||''),JSON.stringify(clean),color]);
+ const r=await q('INSERT INTO track_submissions(user_id,title,artist_name,audio_url,cover_url,description,featuring,release_type,release_date,tracks_json,background_color,platform_links) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12::jsonb) RETURNING id',[u.id,title,artist,clean[0].audio_url,cover,description,featuring,kind,String(b.release_date||''),JSON.stringify(clean),color,JSON.stringify(platformLinks)]);
  return send(res,201,{id:r.rows[0].id,status:'pending'});
 }
 if(path==='/api/submissions'&&method==='GET'){
@@ -324,8 +349,8 @@ if(submission&&method==='PATCH'){
   const actualKind=kind==='single'&&tracks.length===2?'multi_single':kind;
   if(actualKind==='single'&&tracks.length!==1||actualKind==='multi_single'&&tracks.length!==2)throw Error('Тип релиза не соответствует числу треков.');
   const ar=await client.query('INSERT INTO artists(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id',[t.artist_name]);
-  const album=await client.query(`INSERT INTO albums(artist_id,title,cover_url,release_date,description,featuring,audio_url,release_type,background_color)
-   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,[ar.rows[0].id,t.title,t.cover_url||'',t.release_date||'',t.description||'',t.featuring||'',tracks[0].audio_url,actualKind,t.background_color||'#8bff72']);
+  const album=await client.query(`INSERT INTO albums(artist_id,title,cover_url,release_date,description,featuring,audio_url,release_type,background_color,platform_links)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb) RETURNING id`,[ar.rows[0].id,t.title,t.cover_url||'',t.release_date||'',t.description||'',t.featuring||'',tracks[0].audio_url,actualKind,t.background_color||'#8bff72',JSON.stringify(t.platform_links||{})]);
   const albumId=album.rows[0].id;
   for(let i=0;i<tracks.length;i++)await client.query('INSERT INTO tracks(album_id,title,track_number,featuring,audio_url) VALUES($1,$2,$3,$4,$5)',[albumId,String(tracks[i].title).trim(),i+1,String(tracks[i].featuring||''),String(tracks[i].audio_url)]);
   await client.query("UPDATE track_submissions SET status='approved',reviewed_at=NOW(),reviewed_by=$1,published_album_id=$2 WHERE id=$3",[u.id,albumId,submission[1]]);
@@ -407,17 +432,19 @@ if(adminAlbumDelete&&method==='DELETE'){
 }
 if(path==='/api/artists'&&method==='GET'){const r=await q('SELECT * FROM artists ORDER BY name');return send(res,200,{artists:r.rows});}
 if(path==='/api/albums'&&method==='GET'){const r=await q(`${albumsSql} GROUP BY a.id,ar.name ORDER BY a.created_at DESC LIMIT 300`);return send(res,200,{albums:r.rows});}
-const album=path.match(/^\/api\/albums\/(\d+)$/);if(album&&method==='GET'){const r=await q(`${albumsSql} WHERE a.id=$1 GROUP BY a.id,ar.name`,[album[1]]);if(!r.rowCount)return send(res,404,{error:'Релиз не найден.'});const tracks=await q('SELECT * FROM tracks WHERE album_id=$1 ORDER BY track_number',[album[1]]);const reviews=await q(`SELECT r.id,r.user_id,r.album_id,r.rating,r.title,r.body,r.created_at,u.username,u.is_artist,u.avatar_url,u.avatar_bg_color FROM reviews r JOIN users u ON u.id=r.user_id WHERE r.album_id=$1 UNION ALL SELECT 0 AS id,rt.user_id,rt.album_id,rt.rating,'' AS title,'' AS body,rt.updated_at AS created_at,u.username,u.is_artist,u.avatar_url,u.avatar_bg_color FROM ratings rt JOIN users u ON u.id=rt.user_id WHERE rt.album_id=$1 AND NOT EXISTS (SELECT 1 FROM reviews rv WHERE rv.album_id=rt.album_id AND rv.user_id=rt.user_id) ORDER BY created_at DESC`,[album[1]]);const reviewIds=reviews.rows.filter(x=>Number(x.id)>0).map(x=>Number(x.id));
+const album=path.match(/^\/api\/albums\/(\d+)$/);if(album&&method==='GET'){const r=await q(`${albumsSql} WHERE a.id=$1 GROUP BY a.id,ar.name`,[album[1]]);if(!r.rowCount)return send(res,404,{error:'Релиз не найден.'});const tracks=await q('SELECT * FROM tracks WHERE album_id=$1 ORDER BY track_number',[album[1]]);const reviews=await q(`SELECT r.id,r.user_id,r.album_id,r.rating,r.title,r.body,r.created_at,r.is_anonymous,u.username,u.is_artist,u.avatar_url,u.avatar_bg_color FROM reviews r JOIN users u ON u.id=r.user_id WHERE r.album_id=$1 UNION ALL SELECT 0 AS id,rt.user_id,rt.album_id,rt.rating,'' AS title,'' AS body,rt.updated_at AS created_at,FALSE AS is_anonymous,u.username,u.is_artist,u.avatar_url,u.avatar_bg_color FROM ratings rt JOIN users u ON u.id=rt.user_id WHERE rt.album_id=$1 AND NOT EXISTS (SELECT 1 FROM reviews rv WHERE rv.album_id=rt.album_id AND rv.user_id=rt.user_id) ORDER BY created_at DESC`,[album[1]]);const reviewIds=reviews.rows.filter(x=>Number(x.id)>0).map(x=>Number(x.id));
+ const trackScores=await q('SELECT track_id,rating FROM track_ratings WHERE album_id=$1 AND user_id=$2',[album[1],(await me(req))?.id||0]);
  const comments=reviewIds.length?await q(`SELECT c.id,c.review_id,c.user_id,c.body,c.created_at,u.username,u.avatar_url,u.is_artist FROM comments c JOIN users u ON u.id=c.user_id WHERE c.review_id=ANY($1::bigint[]) ORDER BY c.created_at ASC LIMIT 500`,[reviewIds]):{rows:[]};
  const reactions=reviewIds.length?await q(`SELECT review_id,COUNT(*) FILTER(WHERE reaction=1)::int likes,COUNT(*) FILTER(WHERE reaction=-1)::int dislikes FROM review_reactions WHERE review_id=ANY($1::bigint[]) GROUP BY review_id`,[reviewIds]):{rows:[]};
  const viewer=await me(req);
  const myReactions=viewer&&reviewIds.length?await q('SELECT review_id,reaction FROM review_reactions WHERE user_id=$1 AND review_id=ANY($2::bigint[])',[viewer.id,reviewIds]):{rows:[]};
- return send(res,200,{album:r.rows[0],tracks:tracks.rows,reviews:reviews.rows,comments:comments.rows,reactions:reactions.rows,my_reactions:myReactions.rows});}
+ return send(res,200,{album:r.rows[0],tracks:tracks.rows,reviews:reviews.rows.map(v=>v.is_anonymous?{...v,user_id:null,username:"Пользователь предпочел остаться анонимным.",avatar_url:null,avatar_bg_color:"#555555",is_artist:false}:v),comments:comments.rows,reactions:reactions.rows,my_reactions:myReactions.rows,my_track_ratings:trackScores.rows});}
 if(path==='/api/admin/albums'&&method==='GET'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
  const r=await q('SELECT a.id,a.title,a.cover_url,a.release_type,ar.name artist_name FROM albums a JOIN artists ar ON ar.id=a.artist_id ORDER BY a.created_at DESC LIMIT 300');return send(res,200,{albums:r.rows});
 }
 if(album&&method==='PATCH'){
+ let platformLinks;try{platformLinks=validReleasePlatforms(b.platform_links)}catch(e){return send(res,400,{error:e.message})}
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
  const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),featuring=String(b.featuring||'').trim(),cover=String(b.cover_url||'').trim(),color=String(b.background_color||'#8bff72');
  if(!title||title.length>200||!artist||artist.length>120||featuring.length>250)return send(res,400,{error:'Проверь данные релиза.'});
@@ -429,12 +456,13 @@ if(album&&method==='PATCH'){
  const client=await db().connect();try{await client.query('BEGIN');
  const exists=await client.query('SELECT id FROM albums WHERE id=$1 FOR UPDATE',[album[1]]);if(!exists.rowCount){await client.query('ROLLBACK');return send(res,404,{error:'Релиз не найден.'})}
  const ar=await client.query('INSERT INTO artists(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id',[artist]);
- await client.query('UPDATE albums SET artist_id=$1,title=$2,cover_url=$3,release_date=$4,description=$5,featuring=$6,audio_url=$7,release_type=$8,background_color=$9 WHERE id=$10',[ar.rows[0].id,title,cover,String(b.release_date||'').slice(0,30),String(b.description||'').slice(0,5000),featuring,tracks[0].audio_url,kind,color,album[1]]);
+ await client.query('UPDATE albums SET artist_id=$1,title=$2,cover_url=$3,release_date=$4,description=$5,featuring=$6,audio_url=$7,release_type=$8,background_color=$9,platform_links=$11::jsonb WHERE id=$10',[ar.rows[0].id,title,cover,String(b.release_date||'').slice(0,30),String(b.description||'').slice(0,5000),featuring,tracks[0].audio_url,kind,color,album[1],JSON.stringify(platformLinks)]);
  await client.query('DELETE FROM tracks WHERE album_id=$1',[album[1]]);
  for(let i=0;i<tracks.length;i++)await client.query('INSERT INTO tracks(album_id,title,track_number,featuring,audio_url) VALUES($1,$2,$3,$4,$5)',[album[1],String(tracks[i].title).trim(),i+1,String(tracks[i].featuring||'').trim(),String(tracks[i].audio_url)]);
  await client.query('COMMIT');return send(res,200,{id:Number(album[1])});}catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
 }
 if(path==='/api/albums'&&method==='POST'){
+ let platformLinks;try{platformLinks=validReleasePlatforms(b.platform_links)}catch(e){return send(res,400,{error:e.message})}
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
  if(!u.is_admin)return send(res,403,{error:'Публиковать релизы напрямую может только администратор. Артисты отправляют их на модерацию.'});
  const title=String(b.title||'').trim(),artist=String(b.artist_name||'').trim(),featuring=String(b.featuring||'').trim(),cover=String(b.cover_url||'').trim();
@@ -447,40 +475,53 @@ if(path==='/api/albums'&&method==='POST'){
  const client=await db().connect();try{
   await client.query('BEGIN');
   const ar=await client.query('INSERT INTO artists(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id',[artist]);
-  const r=await client.query('INSERT INTO albums(artist_id,title,cover_url,release_date,description,featuring,audio_url,release_type,background_color) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',[ar.rows[0].id,title,cover,String(b.release_date||''),String(b.description||'').slice(0,5000),featuring,tracks[0].audio_url,kind,color]);
+  const r=await client.query('INSERT INTO albums(artist_id,title,cover_url,release_date,description,featuring,audio_url,release_type,background_color,platform_links) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb) RETURNING id',[ar.rows[0].id,title,cover,String(b.release_date||''),String(b.description||'').slice(0,5000),featuring,tracks[0].audio_url,kind,color,JSON.stringify(platformLinks)]);
   for(let i=0;i<tracks.length;i++)await client.query('INSERT INTO tracks(album_id,title,track_number,featuring,audio_url) VALUES($1,$2,$3,$4,$5)',[r.rows[0].id,String(tracks[i].title).trim(),i+1,String(tracks[i].featuring||'').trim(),tracks[i].audio_url]);
   await client.query('COMMIT');return send(res,201,{id:r.rows[0].id});
  }catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
 
 }
-if(path==='/api/ratings'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!validRating(b.rating)||!Number.isInteger(Number(b.album_id)))return send(res,400,{error:'Оценка от 1 до 90.'});await q('INSERT INTO ratings(user_id,album_id,rating) VALUES($1,$2,$3) ON CONFLICT(user_id,album_id) DO UPDATE SET rating=EXCLUDED.rating,updated_at=NOW()',[u.id,b.album_id,b.rating]);return send(res,200,{ok:true});}
+if(path==='/api/ratings'&&method==='POST'){const release=await q('SELECT release_type FROM albums WHERE id=$1',[b.album_id]);if(release.rows[0]?.release_type!=='single'){return send(res,400,{error:'Оцени каждый трек через форму релиза.'});}const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!validRating(b.rating)||!Number.isInteger(Number(b.album_id)))return send(res,400,{error:'Оценка от 1 до 90.'});await q('INSERT INTO ratings(user_id,album_id,rating) VALUES($1,$2,$3) ON CONFLICT(user_id,album_id) DO UPDATE SET rating=EXCLUDED.rating,updated_at=NOW()',[u.id,b.album_id,b.rating]);return send(res,200,{ok:true});}
 if(path==='/api/reviews'&&method==='POST'){
- const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.email_verified&&(String(b.title||'').trim()||String(b.body||'').trim()))return send(res,403,{error:'Подтверди почту, чтобы писать рецензии.'});
- const rating=Number(b.rating),albumId=Number(b.album_id),title=String(b.title||'').trim(),body=String(b.body||'').trim();
- if(!validRating(rating)||!Number.isInteger(albumId)||albumId<1)return send(res,400,{error:'Введи целую оценку от 1 до 90.'});
- if(title&&!body)return send(res,400,{error:'Если указан заголовок, добавь текст рецензии или очисти заголовок.'});
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ const albumId=Number(b.album_id),title=String(b.title||'').trim(),body=String(b.body||'').trim();
+ if(!Number.isSafeInteger(albumId)||albumId<1)return send(res,400,{error:'Некорректный релиз.'});
+ if((title||body)&&!u.email_verified)return send(res,403,{error:'Подтверди почту, чтобы писать рецензии.'});
+ if(title&&!body)return send(res,400,{error:'Добавь текст рецензии или очисти заголовок.'});
+ if(b.anonymous===true&&!body)return send(res,400,{error:'Анонимность доступна для рецензий с текстом.'});
  const client=await db().connect();try{
   await client.query('BEGIN');
+  const albumInfo=await client.query('SELECT release_type FROM albums WHERE id=$1',[albumId]);
+  if(!albumInfo.rowCount){await client.query('ROLLBACK');return send(res,404,{error:'Релиз не найден.'});}
+  const tracks=await client.query('SELECT id FROM tracks WHERE album_id=$1 ORDER BY track_number,id',[albumId]);
+  const multi=albumInfo.rows[0].release_type!=='single' && tracks.rowCount>1;
+  let rating;
+  if(multi){
+   const values=b.track_ratings;
+   if(!Array.isArray(values)||values.length!==tracks.rowCount)return sendAfterRollback(client,res,400,'Оцени каждый трек релиза.');
+   const scores=new Map();
+   for(const item of values){const id=Number(item?.track_id),v=Number(item?.rating);if(!Number.isSafeInteger(id)||!validRating(v)||scores.has(id))return sendAfterRollback(client,res,400,'Каждому треку нужна оценка от 1 до 90.');scores.set(id,v);}
+   if(tracks.rows.some(t=>!scores.has(Number(t.id))))return sendAfterRollback(client,res,400,'Оцени все треки релиза.');
+   rating=Math.round([...scores.values()].reduce((a,b)=>a+b,0)/scores.size);
+   await client.query('DELETE FROM track_ratings WHERE user_id=$1 AND album_id=$2',[u.id,albumId]);
+   for(const t of tracks.rows)await client.query('INSERT INTO track_ratings(user_id,album_id,track_id,rating) VALUES($1,$2,$3,$4)',[u.id,albumId,t.id,scores.get(Number(t.id))]);
+  }else{
+   rating=Number(b.rating);if(!validRating(rating))return sendAfterRollback(client,res,400,'Введи оценку от 1 до 90.');
+  }
   await client.query('INSERT INTO ratings(user_id,album_id,rating) VALUES($1,$2,$3) ON CONFLICT(user_id,album_id) DO UPDATE SET rating=EXCLUDED.rating,updated_at=NOW()',[u.id,albumId,rating]);
   const previous=await client.query('SELECT id FROM reviews WHERE user_id=$1 AND album_id=$2 FOR UPDATE',[u.id,albumId]);
   if(body){
-   let reviewId;
-   if(previous.rowCount){
-    const updated=await client.query('UPDATE reviews SET rating=$1,title=$2,body=$3 WHERE id=$4 RETURNING id',[rating,title.slice(0,150),body.slice(0,10000),previous.rows[0].id]);
-    reviewId=updated.rows[0].id;
-   }else{
-    const created=await client.query('INSERT INTO reviews(user_id,album_id,rating,title,body) VALUES($1,$2,$3,$4,$5) RETURNING id',[u.id,albumId,rating,title.slice(0,150),body.slice(0,10000)]);
-    reviewId=created.rows[0].id;
+   if(previous.rowCount)await client.query('UPDATE reviews SET rating=$1,title=$2,body=$3,is_anonymous=$4 WHERE id=$5',[rating,title.slice(0,150),body.slice(0,10000),b.anonymous===true,previous.rows[0].id]);
+   else{
+    const created=await client.query('INSERT INTO reviews(user_id,album_id,rating,title,body,is_anonymous) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[u.id,albumId,rating,title.slice(0,150),body.slice(0,10000),b.anonymous===true]);
     await client.query(`INSERT INTO user_notifications(user_id,actor_id,album_id,review_id,kind)
-     SELECT DISTINCT rt.user_id,$1::bigint,$2::bigint,$3::bigint,'review'
-     FROM ratings rt WHERE rt.album_id=$2::bigint AND rt.user_id<>$1::bigint`,[u.id,albumId,reviewId]);
+     SELECT DISTINCT rt.user_id,$1::bigint,$2::bigint,$3::bigint,'review' FROM ratings rt WHERE rt.album_id=$2::bigint AND rt.user_id<>$1::bigint`,[u.id,albumId,created.rows[0].id]);
    }
-  }else if(previous.rowCount){
-   await client.query('DELETE FROM reviews WHERE id=$1',[previous.rows[0].id]);
-  }
-  await client.query('COMMIT');return send(res,201,{ok:true});
+  }else if(previous.rowCount)await client.query('DELETE FROM reviews WHERE id=$1',[previous.rows[0].id]);
+  await client.query('COMMIT');return send(res,201,{ok:true,rating});
  }catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
 }
+async function sendAfterRollback(client,res,status,error){await client.query('ROLLBACK');return send(res,status,{error});}
 const reviewReaction=path.match(/^\/api\/reviews\/(\d+)\/reaction$/);
 if(reviewReaction&&method==='POST'){
  const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
