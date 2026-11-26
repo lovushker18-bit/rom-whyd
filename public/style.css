@@ -2019,37 +2019,26 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romDecorAdminButtons{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:650px){.romDecorAdminItem{flex-wrap:wrap}.romDecorAdminButtons{width:100%}}
 
-/* Исправление расположения никнейма и нотки */
-.romProfileIntro h1 {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    flex-wrap: nowrap !important;
-    gap: 10px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    transform: none !important;
-}
-
-.romProfileIntro h1 .romProfileName {
-    display: inline-block !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    transform: none !important;
-    line-height: 1.1 !important;
-}
-
-/* Значок артиста */
-.romProfileIntro h1 .romProfileArtistMark {
-    position: static !important;
-    transform: none !important;
-    margin: 0 !important;
-    flex-shrink: 0 !important;
-}
-
-/* Никнейм и описание на одной линии слева */
-.romProfileIntro {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: flex-start !important;
-}
+/* ROM settings refresh — scoped to account settings only */
+.accountPage.romSettingsRefresh{max-width:1080px;padding-bottom:90px}
+.romSettingsRefresh>h1{font-size:clamp(42px,6vw,68px)!important;letter-spacing:-.055em!important;margin-bottom:12px!important}
+.romSettingsRefresh>h1:after{content:'Управляй профилем, оформлением и безопасностью аккаунта.';display:block;margin:10px 0 32px;font-size:15px;line-height:1.5;letter-spacing:0;font-weight:400;color:#a0aca3}
+.romSettingsRefresh .settingsCard{position:relative;overflow:hidden;background:linear-gradient(145deg,#151d18 0%,#0e1411 100%)!important;border:1px solid #2c3a31!important;border-radius:22px!important;padding:clamp(22px,3.3vw,36px)!important;box-shadow:0 16px 50px #0004;margin-bottom:20px}
+.romSettingsRefresh .settingsCard:first-of-type:before{content:'';position:absolute;pointer-events:none;inset:0 0 auto;height:3px;background:linear-gradient(90deg,#b5ff68,transparent 72%)}
+.romSettingsRefresh .settingsCard h2{font-size:23px;letter-spacing:-.035em;margin:0 0 19px;font-weight:800}
+.romSettingsRefresh .settingsCard h2:before{content:'';display:inline-block;width:7px;height:20px;margin-right:11px;border-radius:5px;background:#b5ff68;vertical-align:-2px}
+.romSettingsRefresh .settingsCard label{display:grid;gap:9px;color:#dbe5db;font-size:13px!important;letter-spacing:.01em}
+.romSettingsRefresh .settingsCard input:not([type=file]),.romSettingsRefresh .settingsCard textarea{background:#090e0b!important;border:1px solid #34453a!important;border-radius:12px!important;transition:border-color .2s,box-shadow .2s}
+.romSettingsRefresh .settingsCard input:focus,.romSettingsRefresh .settingsCard textarea:focus{outline:none!important;border-color:#a5fa67!important;box-shadow:0 0 0 3px #a5fa671c}
+.romSettingsRefresh .settingsCard input[type=file]{padding:13px;border:1px dashed #476044;border-radius:12px;background:#0b110d;max-width:100%}
+.romSettingsRefresh .romAvatarSettingsRow{padding:20px;background:linear-gradient(120deg,#19261a,#0c120e);border:1px solid #344738;border-radius:18px;gap:24px}
+.romSettingsRefresh .romAvatarSettingsPreview img{width:112px!important;height:112px!important;border:2px solid #a7f96c;box-shadow:0 0 0 5px #a7f96c13,0 12px 28px #0008}
+.romSettingsRefresh .romAvatarSettingsMeta{gap:15px}
+.romSettingsRefresh .romPrivateId{padding:10px 13px;border-radius:12px;background:#090e0a;border:1px solid #2a382e}
+.romSettingsRefresh .settingsCard .button{border-radius:11px;min-height:42px}
+.romSettingsRefresh .settingsCard .button:not(.secondary){box-shadow:0 5px 18px #a5fa6716}
+.romSettingsRefresh .romRenameSection>p,.romSettingsRefresh .verifyHelp{color:#9ba99e;line-height:1.6}
+.romSettingsRefresh .romEmailVerified{display:inline-flex;align-items:center;border:1px solid #3d683b;background:#17351c;border-radius:99px;padding:7px 12px;color:#b5ff68}
+.romSettingsRefresh .romSettingsManagement{border:1px solid #304136;border-radius:18px;padding:22px!important;background:#0a110d}
+@media(min-width:850px){.romSettingsRefresh .settingsCard:first-of-type .form{max-width:760px}.romSettingsRefresh .romAvatarSettingsRow{max-width:750px}}
+@media(max-width:600px){.romSettingsRefresh .romAvatarSettingsRow{padding:14px}.romSettingsRefresh .romAvatarSettingsPreview img{width:88px!important;height:88px!important}.romSettingsRefresh .settingsCard{padding:20px!important}.romSettingsRefresh .romPrivateId{max-width:100%}}
