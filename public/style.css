@@ -643,7 +643,7 @@ nav a:hover::after { right: 0; }
   gap: 9px;
   margin-bottom: 18px;
   color: #b9c3b1;
-  font-size: 13px;
+  font-size: 20px;
   letter-spacing: .18em;
 }
 .featuredLabel::before {
