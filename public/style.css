@@ -2018,3 +2018,38 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romDecorAdminItem>div:nth-child(2){flex:1;min-width:0}.romDecorAdminItem p{margin:4px 0;color:#aeb6ae;font-size:13px}.romDecorAdminItem small{color:#b7ff69}
 .romDecorAdminButtons{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:650px){.romDecorAdminItem{flex-wrap:wrap}.romDecorAdminButtons{width:100%}}
+
+/* Исправление расположения никнейма и нотки */
+.romProfileIntro h1 {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex-wrap: nowrap !important;
+    gap: 10px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+}
+
+.romProfileIntro h1 .romProfileName {
+    display: inline-block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    line-height: 1.1 !important;
+}
+
+/* Значок артиста */
+.romProfileIntro h1 .romProfileArtistMark {
+    position: static !important;
+    transform: none !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+}
+
+/* Никнейм и описание на одной линии слева */
+.romProfileIntro {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+}
