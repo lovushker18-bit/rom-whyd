@@ -1946,3 +1946,30 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 #releasePage .romCommentForm button{border:1px solid #344138;border-radius:9px;background:#19231b;color:#b3c6b5;padding:9px 13px;cursor:pointer}
 #releasePage .romCommentForm button:hover{color:var(--page-glow,#8bff72)}
 @media(max-width:740px){#releasePage .romReviewSocial,#releasePage .romReviewDiscussion{margin-left:0}}
+
+/* ROM review controls: aligned thumbs and comment bubble */
+#releasePage .romReviewSocial{
+ display:flex!important;align-items:center!important;gap:18px!important;
+ margin-top:14px!important;margin-left:65px!important;
+}
+#releasePage .romReviewSocial button{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ gap:6px!important;min-height:26px!important;padding:2px 3px!important;
+ line-height:1!important;vertical-align:middle!important;
+}
+#releasePage .romReviewSocial button svg{
+ display:block;width:17px;height:17px;flex:0 0 17px;
+ fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+}
+#releasePage .romReviewSocial button span{display:inline-block;min-width:9px;line-height:17px!important;font-size:12px!important;font-variant-numeric:tabular-nums}
+#releasePage .romReviewSocial .romReviewReaction[data-vote="1"]{color:#5bbd74!important}
+#releasePage .romReviewSocial .romReviewReaction[data-vote="-1"]{color:#e16d6d!important}
+#releasePage .romReviewSocial .romReviewReaction[data-vote="1"]:hover,
+#releasePage .romReviewSocial .romReviewReaction[data-vote="1"].is-selected{color:#89f9a3!important}
+#releasePage .romReviewSocial .romReviewReaction[data-vote="-1"]:hover,
+#releasePage .romReviewSocial .romReviewReaction[data-vote="-1"].is-selected{color:#ff9292!important}
+#releasePage .romReviewSocial .romReviewReaction.is-selected svg{fill:currentColor;fill-opacity:.16;stroke-width:2.2}
+#releasePage .romReviewSocial .romReviewCommentToggle{color:#a0aba4!important}
+#releasePage .romReviewSocial .romReviewCommentToggle:hover,
+#releasePage .romReviewSocial .romReviewCommentToggle.is-selected{color:#e2ece4!important}
+@media(max-width:740px){#releasePage .romReviewSocial{margin-left:0!important}}
