@@ -2002,3 +2002,19 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romDecorColumns{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,0.9fr);gap:22px}.romDecorCatalog h3{font-size:15px;margin:0 0 12px}.romDecorChoices{display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:10px}.romDecorChoice{min-height:84px;background:#090a0b;border:2px solid transparent;border-radius:8px;color:#d9d9d9;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px}.romDecorChoice.is-selected{border-color:#b4ff69}.romDecorChoice img{width:44px;height:44px;object-fit:contain}.romDecorChoice small{font-size:11px}.romDecorNone{font-size:32px}.romDecorEmpty{color:#9da49e;font-size:13px;line-height:1.5;margin-top:18px}
 .romDecorPreview{min-height:220px;border-radius:9px;background:#080a09;display:grid;place-items:center;position:relative}.romDecorAvatar{width:142px;height:142px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#b4ff69;color:#101410;font-size:55px;font-weight:800}.romDecorAvatar img{width:100%;height:100%;object-fit:cover}.romDecorPreviewOverlay{position:absolute;width:170px;height:170px;object-fit:contain;pointer-events:none}.romDecorPreviewOverlay.hidden{display:none}.romDecorDescription{border:1px solid #425b3c;border-radius:7px;padding:12px 14px;margin-top:12px;min-height:72px}.romDecorDescription strong{font-size:14px}.romDecorDescription p{font-size:13px;color:#afb8af;margin:5px 0 0;line-height:1.4}.romDecorActions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
 @media(max-width:620px){.romDecorDialog{padding:18px}.romDecorColumns{grid-template-columns:1fr}.romDecorPreview{min-height:180px}}
+
+/* Profile-only decorations: 512x512 transparent overlay, avatar circle 320px. */
+.romProfileAvatarWrap{width:122px;height:122px;flex:0 0 122px;position:relative;display:grid;place-items:center;isolation:isolate}
+.romProfileAvatarWrap .romProfileAvatar{width:100%;height:100%;flex-shrink:0}
+.romProfileAvatarDecoration{position:absolute!important;width:160%!important;height:160%!important;max-width:none!important;max-height:none!important;left:50%;top:50%;transform:translate(-50%,-50%);object-fit:contain;pointer-events:none;z-index:2}
+.romDecorPreviewOverlay{width:227px;height:227px;left:50%;top:50%;transform:translate(-50%,-50%);max-width:none}
+@media(max-width:650px){.romProfileAvatarWrap{width:80px;height:80px;flex-basis:80px}}
+
+/* Admin decoration catalog */
+.romDecorAdminPreview{position:relative;display:grid;place-items:center;min-height:260px;border:1px solid #2b3630;border-radius:12px;background:#080b09;overflow:hidden}
+.romDecorAdminPreview .romDecorPreviewOverlay{width:227px;height:227px}
+.romDecorAdminItem{display:flex;align-items:center;gap:16px;padding:15px 0;border-bottom:1px solid #29322b}
+.romDecorAdminItem>img{width:70px;height:70px;object-fit:contain;background:#0a0d0b;border-radius:9px}
+.romDecorAdminItem>div:nth-child(2){flex:1;min-width:0}.romDecorAdminItem p{margin:4px 0;color:#aeb6ae;font-size:13px}.romDecorAdminItem small{color:#b7ff69}
+.romDecorAdminButtons{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:650px){.romDecorAdminItem{flex-wrap:wrap}.romDecorAdminButtons{width:100%}}

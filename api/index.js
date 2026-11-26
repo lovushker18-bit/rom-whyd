@@ -12,7 +12,7 @@ const sha=s=>createHash('sha256').update(s).digest('hex');
 const cookie=(value,age)=>`rom_session=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${age}`;
 function cookies(req){return Object.fromEntries((req.headers.cookie||'').split(';').map(s=>s.trim().split('=').slice(0,2)).filter(x=>x.length===2));}
 const send=(res,status,data)=>res.status(status).json(data);
-const safe=u=>u&&({id:u.id,public_id:u.public_id,username:u.username,email:u.email,bio:u.bio,avatar_url:u.avatar_url,email_verified:u.email_verified,is_verified:u.is_verified,is_admin:u.is_admin,is_artist:u.is_artist,background_theme:u.background_theme,background_color:u.background_color});
+const safe=u=>u&&({id:u.id,public_id:u.public_id,username:u.username,email:u.email,bio:u.bio,avatar_url:u.avatar_url,avatar_decoration:u.avatar_decoration,email_verified:u.email_verified,is_verified:u.is_verified,is_admin:u.is_admin,is_artist:u.is_artist,background_theme:u.background_theme,background_color:u.background_color});
 async function me(req){const t=cookies(req).rom_session;if(!t)return null;const r=await q(`SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=$1 AND s.expires_at>NOW()`,[sha(t)]);return r.rows[0]||null;}
 async function session(res,user){const t=token();await q(`INSERT INTO sessions(id,user_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '30 days')`,[sha(t),user.id]);res.setHeader('Set-Cookie',cookie(t,2592000));}
 async function sendVerification(user){
@@ -37,12 +37,13 @@ if(path==='/api/blob-upload'&&method==='POST'){
  try{
   const blobBody=typeof b==='string'?JSON.parse(b):b;
   const result=await handleUpload({body:blobBody,request:req,onBeforeGenerateToken:async(pathname,clientPayload)=>{
-   const kind=String(pathname).startsWith('covers/')?'cover':String(pathname).startsWith('audio/')?'audio':String(pathname).startsWith('avatars/')?'avatar':null;
+   const kind=String(pathname).startsWith('covers/')?'cover':String(pathname).startsWith('audio/')?'audio':String(pathname).startsWith('avatars/')?'avatar':String(pathname).startsWith('decorations/')?'decoration':null;
    if(!kind)throw Error('Недопустимый путь загрузки.');
+   if(kind==='decoration'&&!u.is_admin)throw Error('Только администратор может загружать украшения.');
    if(kind==='avatar'&&!u.email_verified)throw Error('Подтверди почту для загрузки аватара.');
    if(kind==='audio'&&!u.is_artist&&!u.is_verified&&!u.is_admin)throw Error('Аудио могут загружать только артисты.');
    if(kind==='cover'&&!u.is_artist&&!u.is_verified&&!u.is_admin)throw Error('Нет доступа к загрузке обложек.');
-   return {allowedContentTypes:kind==='cover'||kind==='avatar'?['image/png','image/jpeg']:['audio/mpeg','audio/mp3','audio/flac','audio/x-flac','audio/wav','audio/wave','audio/x-wav'],maximumSizeInBytes:kind==='avatar'?2*1024*1024:kind==='cover'?4*1024*1024:40*1024*1024,addRandomSuffix:true,tokenPayload:JSON.stringify({userId:u.id,kind})};
+   return {allowedContentTypes:kind==='decoration'?['image/png']:kind==='cover'||kind==='avatar'?['image/png','image/jpeg']:['audio/mpeg','audio/mp3','audio/flac','audio/x-flac','audio/wav','audio/wave','audio/x-wav'],maximumSizeInBytes:kind==='decoration'?4*1024*1024:kind==='avatar'?2*1024*1024:kind==='cover'?4*1024*1024:40*1024*1024,addRandomSuffix:true,tokenPayload:JSON.stringify({userId:u.id,kind})};
   },onUploadCompleted:async()=>{}});
   return send(res,200,result);
  }catch(e){console.error('Blob upload error:',e);return send(res,400,{error:'Ошибка загрузки Blob: '+e.message});}
@@ -111,9 +112,38 @@ if(path==='/api/register'&&method==='POST'){const username=String(b.username||''
 if(path==='/api/login'&&method==='POST'){const email=String(b.email||b.login||'').trim().toLowerCase();const r=await q('SELECT * FROM users WHERE LOWER(email)=$1',[email]);if(!r.rowCount||!await bcrypt.compare(String(b.password||''),r.rows[0].password_hash))return send(res,401,{error:'Неверная почта или пароль.'});await session(res,r.rows[0]);return send(res,200,{user:safe(r.rows[0])});}
 if(path==='/api/logout'&&method==='POST'){const t=cookies(req).rom_session;if(t)await q('DELETE FROM sessions WHERE id=$1',[sha(t)]);res.setHeader('Set-Cookie',cookie('',0));return send(res,200,{ok:true});}
 if(path==='/api/resend-verification'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(u.email_verified)return send(res,400,{error:'Почта уже подтверждена.'});const last=await q(`SELECT 1 FROM email_tokens WHERE user_id=$1 AND expires_at>NOW()+INTERVAL '9 minutes'`,[u.id]);if(last.rowCount)return send(res,429,{error:'Код уже отправлен. Подожди минуту и попробуй снова.'});try{await sendVerification(u);return send(res,200,{ok:true});}catch(err){console.error('Gmail verification error:',err.message);return send(res,502,{error:'Не удалось отправить письмо. Проверь настройки Gmail в Vercel и логи сервера.'});}}
+if(path==='/api/decorations'&&method==='GET'){
+ const r=await q('SELECT id,name,description,image_url AS image FROM avatar_decorations WHERE active=TRUE ORDER BY created_at,id');
+ return send(res,200,{decorations:r.rows});
+}
+if(path==='/api/admin/decorations'&&method==='GET'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const r=await q('SELECT id,name,description,image_url AS image,active,created_at FROM avatar_decorations ORDER BY created_at DESC,id DESC');
+ return send(res,200,{decorations:r.rows});
+}
+if(path==='/api/admin/decorations'&&method==='POST'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const name=String(b.name||'').trim(),description=String(b.description||'').trim(),image=String(b.image||'').trim();
+ if(name.length<2||name.length>80||description.length>300||!/^https:\/\/[^\s]{1,1500}$/i.test(image))return send(res,400,{error:'Проверь название, описание и PNG.'});
+ const r=await q('INSERT INTO avatar_decorations(name,description,image_url) VALUES($1,$2,$3) RETURNING id',[name,description,image]);
+ return send(res,201,{id:r.rows[0].id});
+}
+const decorItem=path.match(/^\/api\/admin\/decorations\/(\d+)$/);
+if(decorItem&&method==='PATCH'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ if(typeof b.active!=='boolean')return send(res,400,{error:'Нужно указать active.'});
+ const r=await q('UPDATE avatar_decorations SET active=$1 WHERE id=$2 RETURNING id',[b.active,decorItem[1]]);
+ return r.rowCount?send(res,200,{ok:true}):send(res,404,{error:'Украшение не найдено.'});
+}
+if(decorItem&&method==='DELETE'){
+ const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
+ const r=await q('DELETE FROM avatar_decorations WHERE id=$1 RETURNING id',[decorItem[1]]);
+ return r.rowCount?send(res,200,{ok:true}):send(res,404,{error:'Украшение не найдено.'});
+}
+if(path==='/api/profile/decoration'&&method==='PATCH'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});const decoration=b.decoration==null?null:String(b.decoration);if(decoration!==null){const exists=await q('SELECT 1 FROM avatar_decorations WHERE id::text=$1 AND active=TRUE',[decoration]);if(!exists.rowCount)return send(res,400,{error:'Украшение недоступно.'});}const r=await q('UPDATE users SET avatar_decoration=$1 WHERE id=$2 RETURNING *',[decoration,u.id]);return send(res,200,{user:safe(r.rows[0])});}
 if(path==='/api/profile'&&method==='PATCH'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});const bio=String(b.bio||'').trim(),avatar=String(b.avatar_url||'').trim(),color=String(b.background_color||'#8bff72');if(!/^#[0-9a-f]{6}$/i.test(color))return send(res,400,{error:'Некорректный цвет фона.'});if(bio.length>500||avatar.length>500||avatar&&!/^https:\/\//.test(avatar))return send(res,400,{error:'Описание до 500 символов; аватар — HTTPS-ссылка.'});const r=await q('UPDATE users SET bio=$1,avatar_url=$2,background_color=$3 WHERE id=$4 RETURNING *',[bio,avatar,color,u.id]);return send(res,200,{user:safe(r.rows[0])});}
-const profileById=path.match(/^\/api\/users\/id\/(\d+)$/);if(profileById&&method==='GET'){const r=await q('SELECT id,username,bio,avatar_url,email_verified,is_verified,is_artist,background_theme,background_color,created_at FROM users WHERE id=$1',[profileById[1]]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Профиль не найден.'});}
-const profile=path.match(/^\/api\/users\/([^/]+)$/);if(profile&&method==='GET'){const r=await q('SELECT id,username,bio,avatar_url,email_verified,is_verified,is_artist,background_theme,background_color,created_at FROM users WHERE LOWER(username)=LOWER($1)',[decodeURIComponent(profile[1])]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Профиль не найден.'});}
+const profileById=path.match(/^\/api\/users\/id\/(\d+)$/);if(profileById&&method==='GET'){const r=await q('SELECT id,username,bio,avatar_url,avatar_decoration,email_verified,is_verified,is_artist,background_theme,background_color,created_at FROM users WHERE id=$1',[profileById[1]]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Профиль не найден.'});}
+const profile=path.match(/^\/api\/users\/([^/]+)$/);if(profile&&method==='GET'){const r=await q('SELECT id,username,bio,avatar_url,avatar_decoration,email_verified,is_verified,is_artist,background_theme,background_color,created_at FROM users WHERE LOWER(username)=LOWER($1)',[decodeURIComponent(profile[1])]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Профиль не найден.'});}
 const activity=path.match(/^\/api\/users\/(\d+)\/activity$/);
 if(activity&&method==='GET'){
  const userId=Number(activity[1]);

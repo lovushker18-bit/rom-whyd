@@ -519,12 +519,13 @@ function romAdminBackTarget(title){
  if(title==='Панель управления')return 'showSettings()';
  if(title==='Изменить релиз')return 'showAdminAlbums()';
  if(title==='Редактировать рецензию')return 'showAdminReviews()';
- if(['Релизы · управление','Управление релизами','Управление рецензиями','Верификация','Роли артистов','Управление новостями','Запросы на смену ника','Модерация треков','Уведомления'].includes(title))return 'showTestPanel()';
+ if(['Релизы · управление','Управление релизами','Управление рецензиями','Верификация','Роли артистов','Управление новостями','Запросы на смену ника','Модерация треков','Уведомления','Украшения аватаров'].includes(title))return 'showTestPanel()';
  return 'goHome()';
 }
 function accountPage(title,body,clean=false){++romPageRequest;$('#pageView').dataset.publicPage='false';$('#homeView').classList.add('hidden');$('#releasePage').classList.add('hidden');$('#pageView').classList.remove('hidden');document.body.classList.remove('releaseOpen');setActiveNav('');$('#pageView').innerHTML=`<section class="accountPage ${clean?'romProfilePage':''}">${clean?'':`<button class="ghost" onclick="${romAdminBackTarget(title)}">← ${romAdminBackTarget(title)==='goHome()'?'Главная':'Назад'}</button><h1>${title}</h1>`}${body}</section>`;window.scrollTo(0,0);if(clean)romEnterPage('#pageView .romProfilePage');romScheduleBackground()}
 async function renderUserPage(u){
- accountPage('',`<div class="romProfileTop"><div class="romProfileAvatar">${u.avatar_url?`<img src="${escapeAttr(u.avatar_url)}" alt="">`:escapeHtml(u.username.slice(0,1).toUpperCase())}</div><div class="romProfileIntro"><h1><span class="romProfileName">${escapeHtml(u.username)}</span>${u.is_artist?artistBadge(true):''}${u.is_verified?'<span class="verifiedMark" title="Подтверждённый автор">✓</span>':''}</h1><p>${escapeHtml(u.bio||'Пока без описания')}</p></div></div>
+ try{await romLoadDecorations()}catch(e){console.warn('Украшения:',e.message)}
+ accountPage('',`<div class="romProfileTop"><div class="romProfileAvatarWrap"><div class="romProfileAvatar">${u.avatar_url?`<img src="${escapeAttr(u.avatar_url)}" alt="">`:escapeHtml(u.username.slice(0,1).toUpperCase())}</div>${romAvatarDecorations.find(d=>String(d.id)===String(u.avatar_decoration))?`<img class="romProfileAvatarDecoration" src="${escapeAttr(romAvatarDecorations.find(d=>String(d.id)===String(u.avatar_decoration)).image)}" alt="Украшение аватара">`:''}</div><div class="romProfileIntro"><h1><span class="romProfileName">${escapeHtml(u.username)}</span>${u.is_artist?artistBadge(true):''}${u.is_verified?'<span class="verifiedMark" title="Подтверждённый автор">✓</span>':''}</h1><p>${escapeHtml(u.bio||'Пока без описания')}</p></div></div>
  <div class="romProfileStats" id="romProfileStats"><div><span>Рецензии</span><strong>—</strong></div><div><span>Релизы</span><strong>—</strong></div><div><span>Оценки</span><strong>—</strong></div></div>
  <div class="romProfileGrid"><section class="romProfilePanel"><div class="romProfilePanelTitle"><h2>Написанные рецензии</h2></div><div id="romProfileReviews" class="romProfileReviews"><p class="mutedSmall">Загружаем рецензии…</p></div></section><aside class="romProfilePanel"><div class="romProfilePanelTitle"><h2>Распределение оценок</h2></div><div id="romProfileDistribution" class="romDistribution"><p class="mutedSmall">Загрузка…</p></div></aside></div>
  `,true);
@@ -545,29 +546,32 @@ function romReadNews(id){
 }
 function romSettingsManagement(){return '';}
 // The decoration catalog intentionally starts empty. A future catalog can add items here.
-const romAvatarDecorations=[];
+let romAvatarDecorations=[];
+async function romLoadDecorations(){const d=await api('/api/decorations');romAvatarDecorations=d.decorations||[];return romAvatarDecorations;}
 let romDecorationDraft=null;
-function romOpenAvatarDecorations(){
+async function romOpenAvatarDecorations(){
+ try{await romLoadDecorations()}catch(e){return toast('Не удалось загрузить украшения: '+e.message)}
  if(!currentUser)return openAuth();
  document.querySelector('#romAvatarDecorModal')?.remove();
- romDecorationDraft=null;
+ romDecorationDraft=currentUser.avatar_decoration||null;
  const root=document.createElement('div');root.id='romAvatarDecorModal';root.className='romDecorOverlay';
- root.innerHTML=`<div class="romDecorDialog" role="dialog" aria-modal="true" aria-labelledby="romDecorTitle"><div class="romDecorHeader"><h2 id="romDecorTitle">Сменить украшение аватара</h2><button type="button" class="romDecorClose" onclick="romCloseAvatarDecorations()" aria-label="Закрыть">×</button></div><div class="romDecorColumns"><div class="romDecorCatalog"><h3>Ваши украшения</h3><div class="romDecorChoices"><button type="button" class="romDecorChoice is-selected" onclick="romChooseAvatarDecoration(null,this)"><span class="romDecorNone">⊘</span><small>Пусто</small></button>${romAvatarDecorations.map(item=>`<button type="button" class="romDecorChoice" onclick="romChooseAvatarDecoration('${escapeAttr(item.id)}',this)"><img src="${escapeAttr(item.image)}" alt=""><small>${escapeHtml(item.name)}</small></button>`).join('')}</div>${romAvatarDecorations.length?'':'<p class="romDecorEmpty">Пока украшений нет. Здесь появятся доступные украшения.</p>'}</div><div class="romDecorPreviewColumn"><div class="romDecorPreview"><div class="romDecorAvatar">${currentUser.avatar_url?`<img src="${escapeAttr(currentUser.avatar_url)}" alt="Предпросмотр аватара">`:`<span>${escapeHtml(currentUser.username.slice(0,1).toUpperCase())}</span>`}</div><img class="romDecorPreviewOverlay hidden" alt=""></div><div class="romDecorDescription"><strong id="romDecorItemName">Без украшения</strong><p id="romDecorItemDescription">Аватар будет отображаться без дополнительных элементов.</p></div></div></div><div class="romDecorActions"><button type="button" class="button secondary" onclick="romCloseAvatarDecorations()">Отмена</button><button type="button" class="button" onclick="romSaveAvatarDecoration()">Сохранить</button></div></div>`;
+ root.innerHTML=`<div class="romDecorDialog" role="dialog" aria-modal="true" aria-labelledby="romDecorTitle"><div class="romDecorHeader"><h2 id="romDecorTitle">Сменить украшение аватара</h2><button type="button" class="romDecorClose" onclick="romCloseAvatarDecorations()" aria-label="Закрыть">×</button></div><div class="romDecorColumns"><div class="romDecorCatalog"><h3>Ваши украшения</h3><div class="romDecorChoices"><button type="button" class="romDecorChoice ${romDecorationDraft===null?'is-selected':''}" onclick="romChooseAvatarDecoration(null,this)"><span class="romDecorNone">⊘</span><small>Пусто</small></button>${romAvatarDecorations.map(item=>`<button type="button" class="romDecorChoice ${romDecorationDraft===item.id?'is-selected':''}" onclick="romChooseAvatarDecoration('${escapeAttr(item.id)}',this)"><img src="${escapeAttr(item.image)}" alt=""><small>${escapeHtml(item.name)}</small></button>`).join('')}</div>${romAvatarDecorations.length?'':'<p class="romDecorEmpty">Пока украшений нет. Здесь появятся доступные украшения.</p>'}</div><div class="romDecorPreviewColumn"><div class="romDecorPreview"><div class="romDecorAvatar">${currentUser.avatar_url?`<img src="${escapeAttr(currentUser.avatar_url)}" alt="Предпросмотр аватара">`:`<span>${escapeHtml(currentUser.username.slice(0,1).toUpperCase())}</span>`}</div><img class="romDecorPreviewOverlay hidden" alt=""></div><div class="romDecorDescription"><strong id="romDecorItemName">Без украшения</strong><p id="romDecorItemDescription">Аватар будет отображаться без дополнительных элементов.</p></div></div></div><div class="romDecorActions"><button type="button" class="button secondary" onclick="romCloseAvatarDecorations()">Отмена</button><button type="button" class="button" onclick="romSaveAvatarDecoration()">Сохранить</button></div></div>`;
  root.addEventListener('click',e=>{if(e.target===root)romCloseAvatarDecorations()});document.body.appendChild(root);
+ if(romDecorationDraft)romChooseAvatarDecoration(romDecorationDraft,root.querySelector('.romDecorChoice.is-selected'));
 }
 function romChooseAvatarDecoration(id,button){
  romDecorationDraft=id;
  document.querySelectorAll('.romDecorChoice').forEach(el=>el.classList.toggle('is-selected',el===button));
- const item=romAvatarDecorations.find(x=>x.id===id);
+ const item=romAvatarDecorations.find(x=>String(x.id)===String(id));
  document.querySelector('#romDecorItemName').textContent=item?.name||'Без украшения';
  document.querySelector('#romDecorItemDescription').textContent=item?.description||'Аватар будет отображаться без дополнительных элементов.';
  const overlay=document.querySelector('.romDecorPreviewOverlay');if(item){overlay.src=item.image;overlay.classList.remove('hidden')}else{overlay.removeAttribute('src');overlay.classList.add('hidden')}
 }
 function romCloseAvatarDecorations(){document.querySelector('#romAvatarDecorModal')?.remove();}
-function romSaveAvatarDecoration(){
- // No decorations have been released yet, so only the empty option is available.
- if(romDecorationDraft!==null)return toast('Это украшение пока недоступно.');
- romCloseAvatarDecorations();toast('Украшение аватара сохранено: без украшения.');
+async function romSaveAvatarDecoration(){
+ const button=document.querySelector('.romDecorActions .button:not(.secondary)');if(button)button.disabled=true;
+ try{const d=await api('/api/profile/decoration',{method:'PATCH',body:JSON.stringify({decoration:romDecorationDraft})});currentUser=d.user;romCloseAvatarDecorations();toast('Украшение аватара сохранено!');}
+ catch(err){toast(err.message)}finally{if(button)button.disabled=false}
 }
 function renderAccountSettings(){accountPage('Настройки',`<div class="settingsCard"><h2>Профиль</h2><form id="settingsForm" class="form"><label>Аватар · PNG/JPG до 2 МБ<input name="avatar_file" type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg"></label><div class="romAvatarSettingsRow"><div class="romAvatarSettingsPreview">${currentUser.avatar_url?`<img src="${escapeAttr(currentUser.avatar_url)}" alt="Текущий аватар">`:'<span>Нет аватара</span>'}</div><div class="romAvatarSettingsMeta"><button type="button" class="button secondary romDecorateAvatar" onclick="romOpenAvatarDecorations()">Украсить аватар</button><div class="romPrivateId"><span>Личный ID:</span><strong>${currentUser.public_id||'—'}</strong><button type="button" class="button secondary" onclick="navigator.clipboard?.writeText(String(currentUser.public_id)).then(()=>toast('ID скопирован')).catch(()=>toast('Не удалось скопировать'))">Копировать</button></div></div></div><label>О себе<textarea name="bio" rows="4" maxlength="500">${escapeHtml(currentUser.bio||'')}</textarea></label><button class="button">Сохранить</button></form><hr><h2>Электронная почта</h2><p>${escapeHtml(currentUser.email)}</p><p class="${currentUser.email_verified?'romEmailVerified':''}">${currentUser.email_verified?'✓ Почта подтверждена':'Подтверди почту, чтобы писать текстовые рецензии.'}</p>${currentUser.email_verified?'':`<form class="form codeVerifyForm" onsubmit="verifyEmailCode(event)"><label>Код из письма<input name="code" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" placeholder="000000" required></label><button class="button" type="submit">Подтвердить почту</button></form>`}${currentUser.email_verified?'':'<button class="button verifyButton" id="resendEmail">Отправить код повторно</button><p class="verifyHelp">Введи шестизначный код из письма. Проверь папку «Спам».</p>'}</div><section class="settingsCard romRenameSection"><h2>Смена никнейма</h2><p>Запрос будет на проверке. Ник изменится во всех рецензиях и профиле.</p><form id="romUsernameRequestForm" class="form"><label>Желаемый ник<input name="username" minlength="3" maxlength="24" autocomplete="off" required placeholder="Новый ник"></label><button class="button" type="submit">Отправить запрос</button></form><div id="romUsernameRequestHistory" class="mutedSmall">Загрузка…</div></section>${romSettingsManagement()}`);$('#settingsForm').addEventListener('submit',async e=>{e.preventDefault();try{const formData=new FormData(e.target),file=formData.get('avatar_file');let avatar_url=currentUser.avatar_url||'';
 if(file instanceof File&&file.size){avatar_url=await uploadRomFile(file,'avatar',e.target.querySelector('button[type="submit"],button'))}
@@ -590,17 +594,17 @@ async function resendVerification(button){if(!currentUser)return openAuth();if(b
 // Client-side direct upload to Vercel Blob: files never pass through the Vercel function body.
 async function uploadRomFile(file,kind,button){
  if(!file)return '';
- const image=kind==='cover'||kind==='avatar',limit=(kind==='avatar'?2:image?4:40)*1024*1024;
+ const image=kind==='cover'||kind==='avatar'||kind==='decoration',limit=(kind==='avatar'?2:image?4:40)*1024*1024;
  const ext=(file.name.split('.').pop()||'').toLowerCase();
- if(!((image&&['png','jpg','jpeg'].includes(ext))||(!image&&['mp3','flac','wav'].includes(ext))))throw Error(image?'Обложка: только PNG или JPG.':'Аудио: только MP3, FLAC или WAV.');
+ if(!((kind==='decoration'&&ext==='png')||(image&&kind!=='decoration'&&['png','jpg','jpeg'].includes(ext))||(!image&&['mp3','flac','wav'].includes(ext))))throw Error(image?'Обложка: только PNG или JPG.':'Аудио: только MP3, FLAC или WAV.');
  if(file.size>limit)throw Error(`Файл превышает ${kind==='avatar'?2:image?4:40} МБ.`);
- const allowed=image?['image/png','image/jpeg']:['audio/mpeg','audio/mp3','audio/flac','audio/x-flac','audio/wav','audio/wave','audio/x-wav'];
+ const allowed=kind==='decoration'?['image/png']:image?['image/png','image/jpeg']:['audio/mpeg','audio/mp3','audio/flac','audio/x-flac','audio/wav','audio/wave','audio/x-wav'];
  if(file.type&&!allowed.includes(file.type))throw Error('Некорректный формат файла.');
  if(!window.romBlobUpload)throw Error('Модуль загрузки не подключён. Обнови страницу.');
  const name=file.name.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-100);
  const original=button?.textContent;
  try{
-  const blob=await window.romBlobUpload(`${kind==='avatar'?'avatars':image?'covers':'audio'}/${name}`,file,{
+  const blob=await window.romBlobUpload(`${kind==='decoration'?'decorations':kind==='avatar'?'avatars':image?'covers':'audio'}/${name}`,file,{
    access:'public',handleUploadUrl:'/api/blob-upload',multipart:!image,
    onUploadProgress:({percentage})=>{if(button)button.textContent=`Загрузка ${Math.round(percentage)}%…`}
   });
@@ -699,8 +703,25 @@ async function romSaveEditAlbum(e){
 }
 async function showTestPanel(){
  if(!currentUser?.is_admin)return toast('Только администратор');
- accountPage('Панель управления',`<div class="romAdminDashboard"><div class="romAdminDashboardGrid"><button onclick="showAdminAlbums()"><span class="romAdminDashboardIcon">◈</span><strong>Релизы</strong><small>Изменить или удалить</small></button><button onclick="showAdminReviews()"><span class="romAdminDashboardIcon">✎</span><strong>Рецензии</strong><small>Редактировать и удалить</small></button><button onclick="showAdminHelp()"><span class="romAdminDashboardIcon">✉</span><strong>Помощь</strong><small>Обращения пользователей</small></button><button onclick="showAdminArtistById()"><span class="romAdminDashboardIcon">♫</span><strong>Артисты</strong><small>Выдать роль по ID</small></button><button onclick="showAdminFaq()"><span class="romAdminDashboardIcon">?</span><strong>FAQ</strong><small>Вопросы и ответы</small></button><button onclick="showAdminNews()"><span class="romAdminDashboardIcon">▤</span><strong>Новости</strong><small>Публикация и редактирование</small></button><button onclick="showAdminUsernameRequests()"><span class="romAdminDashboardIcon">✉</span><strong>Смена ника</strong><small>Запросы пользователей</small></button></div></div>`);
+ accountPage('Панель управления',`<div class="romAdminDashboard"><div class="romAdminDashboardGrid"><button onclick="showAdminAlbums()"><span class="romAdminDashboardIcon">◈</span><strong>Релизы</strong><small>Изменить или удалить</small></button><button onclick="showAdminReviews()"><span class="romAdminDashboardIcon">✎</span><strong>Рецензии</strong><small>Редактировать и удалить</small></button><button onclick="showAdminHelp()"><span class="romAdminDashboardIcon">✉</span><strong>Помощь</strong><small>Обращения пользователей</small></button><button onclick="showAdminArtistById()"><span class="romAdminDashboardIcon">♫</span><strong>Артисты</strong><small>Выдать роль по ID</small></button><button onclick="romAdminDecorations()"><span class="romAdminDashboardIcon">✧</span><strong>Украшения аватаров</strong><small>Добавить, скрыть или удалить</small></button><button onclick="showAdminFaq()"><span class="romAdminDashboardIcon">?</span><strong>FAQ</strong><small>Вопросы и ответы</small></button><button onclick="showAdminNews()"><span class="romAdminDashboardIcon">▤</span><strong>Новости</strong><small>Публикация и редактирование</small></button><button onclick="showAdminUsernameRequests()"><span class="romAdminDashboardIcon">✉</span><strong>Смена ника</strong><small>Запросы пользователей</small></button></div></div>`);
 }
+async function romAdminDecorations(){
+ if(!currentUser?.is_admin)return toast('Только администратор');
+ accountPage('Украшения аватаров',`<div class="settingsCard"><h2>Добавить украшение</h2><p class="mutedSmall">PNG с прозрачным фоном, холст 512 × 512 px, до 4 МБ. Круг аватара — 320 px по центру.</p><form id="romDecorAdminForm" class="form"><label>Название<input name="name" maxlength="80" required placeholder="Например, Кошачьи ушки"></label><label>Описание<textarea name="description" maxlength="300" rows="2" placeholder="Короткое описание"></textarea></label><label>Украшение (PNG)<input type="file" name="file" accept="image/png,.png" required></label><div class="romDecorAdminPreview"><div class="romDecorAvatar">${currentUser.avatar_url?`<img src="${escapeAttr(currentUser.avatar_url)}" alt="">`:escapeHtml(currentUser.username.slice(0,1).toUpperCase())}</div><img id="romAdminDecorPreviewImage" class="romDecorPreviewOverlay hidden" alt="Предпросмотр украшения"></div><button class="button" type="submit">Добавить украшение</button></form></div><div class="settingsCard"><h2>Каталог украшений</h2><div id="romDecorAdminList">Загрузка…</div></div>`);
+ const form=document.querySelector('#romDecorAdminForm'),file=form.elements.file;
+ file.addEventListener('change',()=>{const f=file.files[0],img=document.querySelector('#romAdminDecorPreviewImage');if(!img)return;if(!f){img.classList.add('hidden');return;}img.src=URL.createObjectURL(f);img.classList.remove('hidden')});
+ form.addEventListener('submit',async e=>{e.preventDefault();const btn=form.querySelector('[type=submit]');btn.disabled=true;try{
+ const f=file.files[0];if(!f||f.type!=='image/png'||f.size>4*1024*1024)throw Error('Нужен PNG до 4 МБ.');
+ const image=await uploadRomFile(f,'decoration',btn);
+ await api('/api/admin/decorations',{method:'POST',body:JSON.stringify({name:form.elements.name.value.trim(),description:form.elements.description.value.trim(),image})});
+ toast('Украшение добавлено');await romLoadDecorations();romAdminDecorations();
+ }catch(err){toast(err.message)}finally{btn.disabled=false}});
+ try{const {decorations}=await api('/api/admin/decorations');const el=document.querySelector('#romDecorAdminList');if(!el)return;
+ el.innerHTML=decorations.length?decorations.map(d=>`<div class="romDecorAdminItem"><img src="${escapeAttr(d.image)}" alt=""><div><strong>${escapeHtml(d.name)}</strong><p>${escapeHtml(d.description||'Без описания')}</p><small>${d.active?'В каталоге':'Скрыто'}</small></div><div class="romDecorAdminButtons"><button type="button" class="button secondary" onclick="romAdminToggleDecoration(${Number(d.id)},${!d.active})">${d.active?'Скрыть':'Показать'}</button><button type="button" class="button secondary" onclick="romAdminDeleteDecoration(${Number(d.id)})">Удалить</button></div></div>`).join(''):'<p class="mutedSmall">Украшений пока нет.</p>';
+ }catch(err){toast(err.message)}
+}
+async function romAdminToggleDecoration(id,active){try{await api(`/api/admin/decorations/${id}`,{method:'PATCH',body:JSON.stringify({active})});await romLoadDecorations();romAdminDecorations()}catch(e){toast(e.message)}}
+async function romAdminDeleteDecoration(id){if(!confirm('Удалить украшение навсегда? У пользователей оно исчезнет из профиля.'))return;try{await api(`/api/admin/decorations/${id}`,{method:'DELETE'});await romLoadDecorations();romAdminDecorations()}catch(e){toast(e.message)}}
 async function showAdminNotifications(){
  if(!currentUser?.is_admin)return toast('Только администратор');
  accountPage('Уведомления',`<div class="romAdminDashboardGrid"><button onclick="showSubmissions()"><strong>Заявки на релизы</strong><small>Проверить музыку</small></button><button onclick="showAdminUsernameRequests()"><strong>Запросы смены ника</strong><small>Одобрить или отклонить</small></button><button onclick="showAdminHelp()"><strong>Помощь</strong><small>Обращения пользователей</small></button></div>`);
