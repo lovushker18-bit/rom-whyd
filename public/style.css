@@ -641,9 +641,9 @@ nav a:hover::after { right: 0; }
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-bottom: 18px;
+  margin-bottom: 15px;
   color: #b9c3b1;
-  font-size: 20px;
+  font-size: 10px;
   letter-spacing: .18em;
 }
 .featuredLabel::before {
@@ -655,8 +655,9 @@ nav a:hover::after { right: 0; }
   box-shadow: 0 0 12px rgba(184,255,98,.65);
 }
 .featuredNames h2 {
-  font-size: 20px;
+  font-size: 24px;
   letter-spacing: -.04em;
+  transform: translateY(4px);
 }
 .featuredNames p { color: #9ca598; font-size: 13px; }
 .featuredScore strong {
