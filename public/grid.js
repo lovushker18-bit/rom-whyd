@@ -32,16 +32,18 @@
   pointer.x+=(pointer.tx-pointer.x)*(reduced.matches?1:.25);
   pointer.y+=(pointer.ty-pointer.y)*(reduced.matches?1:.25);
   const x=pointer.x,y=pointer.y,radius=155,spacing=41;
-  radial(x,y,radius*1.15,.078);
+  // Double cursor-neon intensity only on release pages; preserve the release hue.
+  const releaseBoost=!document.getElementById('releasePage')?.classList.contains('hidden')?2:1;
+  radial(x,y,radius*1.15,.078*releaseBoost);
   const left=Math.floor((x-radius)/spacing)*spacing,top=Math.floor((y-radius)/spacing)*spacing;
   ctx.lineWidth=.65;
   for(let gx=left;gx<x+radius;gx+=spacing){
    for(let gy=top;gy<y+radius;gy+=spacing){
     const dist=Math.hypot(gx-x,gy-y);if(dist>radius)continue;
     const strength=Math.pow(1-dist/radius,1.7);
-    ctx.strokeStyle=rgba(.115*strength);
+    ctx.strokeStyle=rgba(.115*strength*releaseBoost);
     ctx.beginPath();ctx.moveTo(gx,gy);ctx.lineTo(gx+spacing,gy);ctx.moveTo(gx,gy);ctx.lineTo(gx,gy+spacing);ctx.stroke();
-    ctx.fillStyle=rgba(.33*strength);ctx.beginPath();ctx.arc(gx,gy,.65+strength*.6,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=rgba(.33*strength*releaseBoost);ctx.beginPath();ctx.arc(gx,gy,.65+strength*.6,0,Math.PI*2);ctx.fill();
    }
   }
  }

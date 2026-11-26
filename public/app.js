@@ -493,7 +493,7 @@ async function openAlbum(id) {
   const reviewComments=data.comments||[],reviewReactions=data.reactions||[],myReviewReactions=data.my_reactions||[];
    const reviews=(data.reviews||[]).sort((x,y)=>Number(Boolean(y.body?.trim()))-Number(Boolean(x.body?.trim()))||new Date(y.created_at)-new Date(x.created_at));
   $('#releaseContent').innerHTML=`
-  <div class="romReleaseHeading"><div class="romReleaseHeadingArtist">${escapeHtml(a.artist_name)}${a.featuring?.trim()?` <span class="romReleaseFeaturing">feat. ${escapeHtml(a.featuring)}</span>`:''}${a.producer?.trim()?` <span class="romReleaseFeaturing">prod. by ${escapeHtml(a.producer)}</span>`:''}</div><h1>${escapeHtml(a.title)}</h1></div>
+  <div class="romReleaseHeading"><div class="romReleaseHeadingArtist">${escapeHtml(a.artist_name)}${a.featuring?.trim()?` <span class="romReleaseFeaturing">feat. ${escapeHtml(a.featuring)}</span>`:''}${a.producer?.trim()?` <span class="romReleaseProducer">(prod. by ${escapeHtml(a.producer.trim())})</span>`:''}</div><h1>${escapeHtml(a.title)}</h1></div>
   <div class="romReleaseHero">
     <div class="romReleaseCover">${a.cover_url?`<img src="${escapeAttr(a.cover_url)}" alt="Обложка ${escapeAttr(a.title)}">`:'<span>ROM</span>'}</div>
     <div class="romReleaseSidebar">
@@ -505,7 +505,7 @@ async function openAlbum(id) {
         </div>
         <div class="romOverviewBlock romOverviewFacts">
           <span class="romOverviewLabel">ИНФОРМАЦИЯ О РЕЛИЗЕ</span>
-          <dl><div><dt>Тип релиза</dt><dd>${({single:'Сингл',multi_single:'Мульти-сингл',ep:'EP',album:'Альбом'})[a.release_type]||'Релиз'}</dd></div><div><dt>Дата релиза</dt><dd>${escapeHtml(romReleaseDate(a.release_date))}</dd></div></dl>${a.author_comment?.trim()?`<div class="romAuthorComment"><span class="romAuthorCommentLabel">КОММЕНТАРИЙ АВТОРА</span><blockquote>«${escapeHtml(a.author_comment.trim())}»</blockquote></div>`:''}
+          <dl><div><dt>Тип релиза</dt><dd>${({single:'Сингл',multi_single:'Мульти-сингл',ep:'EP',album:'Альбом'})[a.release_type]||'Релиз'}</dd></div><div><dt>Дата релиза</dt><dd>${escapeHtml(romReleaseDate(a.release_date))}</dd></div>${a.producer?.trim()?`<div><dt>Продюсер</dt><dd class="romProducerCredit">${escapeHtml(a.producer.trim())}</dd></div>`:''}</dl>${a.author_comment?.trim()?`<div class="romAuthorComment"><span class="romAuthorCommentLabel">КОММЕНТАРИЙ АВТОРА</span><blockquote>«${escapeHtml(a.author_comment.trim())}»</blockquote></div>`:''}
         </div>
       </div>
       <div class="romOverviewAction">${currentUser?`<button class="button romRateButton" onclick="romOpenRating()">Оценить релиз</button>`:`<button class="button" onclick="openAuth()">Войти, чтобы оценить</button>`}<div class="romPlatformButtons">${romPlatformButtons(a.platform_links)}</div></div>
