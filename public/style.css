@@ -2242,7 +2242,7 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romPlatformButton img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
 
 /* Producer credit in release information */
-.romOverviewFacts .romProducerCredit { color: #777f7b; font-weight: 400; }
+.romOverviewFacts .romProducerCredit { color: #e8ece8; font-weight: 700; }
 
 /* Producer: muted credit in heading, plain name in facts */
 #releasePage .romReleaseProducer{font-size:.77em;font-weight:400;color:#69736e;margin-left:7px;white-space:normal}
