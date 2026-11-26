@@ -1887,7 +1887,7 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 }
 .romProfileIntro h1 .romProfileArtistMark {
     position: relative !important;
-    top: 8px !important;
+    top: 6px !important;
     transform: translateY(50) !important;
     transform: translateX(-40) !important;
 
@@ -1906,7 +1906,7 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 }
 .romProfileIntro h1 .romProfileArtistMark {
     position: relative !important;
-    left: -1px !important;
+    left: 0px !important;
 }
 .romReviewIdentity .artistBadge,
 .romReviewIdentity .romProfileArtistMark {
@@ -2170,3 +2170,26 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romAvatarEditorCircle img {mix-blend-mode:normal!important;filter:none!important;opacity:1!important;}
 .romProfileIntro {position:relative;left:-3px;top:3px;}
 @media(max-width:600px){.romSettingsRefresh .romAvatarSettingsPreview{width:88px!important;height:88px!important;flex-basis:88px!important;}}
+
+/* ROM mobile landing: keep the headline, description, actions and featured release in normal flow. */
+@media (max-width:760px) {
+  #homeView.homeView {height:auto!important;min-height:0!important;overflow:visible!important;width:100%!important;}
+  #homeView .hero {display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:28px!important;width:100%!important;height:auto!important;min-height:0!important;padding:38px 20px 65px!important;box-sizing:border-box!important;}
+  #homeView .heroCopy {position:relative!important;width:100%!important;min-width:0!important;max-width:100%!important;z-index:auto!important;}
+  #homeView .heroCopy h1 {font-size:clamp(48px,11.5vw,74px)!important;letter-spacing:-.065em!important;line-height:1.04!important;margin:0!important;overflow-wrap:normal!important;}
+  #homeView .heroText {display:block!important;width:100%!important;max-width:540px!important;margin:19px 0 22px!important;font-size:15px!important;line-height:1.65!important;letter-spacing:normal!important;overflow-wrap:break-word!important;}
+  #homeView .heroActions {display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;align-items:stretch!important;gap:10px!important;margin:0!important;}
+  #homeView .heroActions .button {width:auto!important;min-height:46px!important;flex:1 1 145px!important;padding:10px 14px!important;}
+  #homeView .heroCard {position:relative!important;display:block!important;width:100%!important;max-width:540px!important;min-height:0!important;height:auto!important;margin:0 auto!important;justify-self:auto!important;align-self:center!important;transform:none!important;z-index:auto!important;}
+  #homeView .heroCard:hover {transform:none!important;}
+  #homeView .featuredCover {position:relative!important;width:100%!important;aspect-ratio:1/1!important;inset:auto!important;}
+  #homeView .featuredInfo {position:relative!important;padding:17px 4px 4px!important;}
+  #homeView .featuredMeta {gap:10px!important;align-items:center!important;}
+  #homeView .featuredNames h2 {font-size:clamp(17px,5vw,24px)!important;overflow-wrap:anywhere!important;}
+  #homeView .featuredScore strong {font-size:clamp(19px,5.5vw,25px)!important;}
+}
+@media (max-width:420px) {
+  #homeView .hero {padding:31px 17px 56px!important;gap:24px!important;}
+  #homeView .heroCopy h1 {font-size:clamp(46px,11.4vw,58px)!important;}
+  #homeView .heroText {font-size:14px!important;line-height:1.65!important;}
+}

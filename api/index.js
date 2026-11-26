@@ -421,8 +421,27 @@ if(path==='/api/reviews'&&method==='POST'){
  const rating=Number(b.rating),albumId=Number(b.album_id),title=String(b.title||'').trim(),body=String(b.body||'').trim();
  if(!validRating(rating)||!Number.isInteger(albumId)||albumId<1)return send(res,400,{error:'Введи целую оценку от 1 до 90.'});
  if(title&&!body)return send(res,400,{error:'Если указан заголовок, добавь текст рецензии или очисти заголовок.'});
- const client=await db().connect();try{await client.query('BEGIN');await client.query('INSERT INTO ratings(user_id,album_id,rating) VALUES($1,$2,$3) ON CONFLICT(user_id,album_id) DO UPDATE SET rating=EXCLUDED.rating,updated_at=NOW()',[u.id,albumId,rating]);await client.query('DELETE FROM reviews WHERE user_id=$1 AND album_id=$2',[u.id,albumId]);if(body){const created=await client.query('INSERT INTO reviews(user_id,album_id,rating,title,body) VALUES($1,$2,$3,$4,$5) RETURNING id',[u.id,albumId,rating,title.slice(0,150),body.slice(0,10000)]);await client.query(`INSERT INTO user_notifications(user_id,actor_id,album_id,review_id,kind)
- SELECT DISTINCT rt.user_id,$1,$2,$3,'review' FROM ratings rt WHERE rt.album_id=$2 AND rt.user_id<>$1`,[u.id,albumId,created.rows[0].id]);}await client.query('COMMIT');return send(res,201,{ok:true})}catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
+ const client=await db().connect();try{
+  await client.query('BEGIN');
+  await client.query('INSERT INTO ratings(user_id,album_id,rating) VALUES($1,$2,$3) ON CONFLICT(user_id,album_id) DO UPDATE SET rating=EXCLUDED.rating,updated_at=NOW()',[u.id,albumId,rating]);
+  const previous=await client.query('SELECT id FROM reviews WHERE user_id=$1 AND album_id=$2 FOR UPDATE',[u.id,albumId]);
+  if(body){
+   let reviewId;
+   if(previous.rowCount){
+    const updated=await client.query('UPDATE reviews SET rating=$1,title=$2,body=$3 WHERE id=$4 RETURNING id',[rating,title.slice(0,150),body.slice(0,10000),previous.rows[0].id]);
+    reviewId=updated.rows[0].id;
+   }else{
+    const created=await client.query('INSERT INTO reviews(user_id,album_id,rating,title,body) VALUES($1,$2,$3,$4,$5) RETURNING id',[u.id,albumId,rating,title.slice(0,150),body.slice(0,10000)]);
+    reviewId=created.rows[0].id;
+    await client.query(`INSERT INTO user_notifications(user_id,actor_id,album_id,review_id,kind)
+     SELECT DISTINCT rt.user_id,$1::bigint,$2::bigint,$3::bigint,'review'
+     FROM ratings rt WHERE rt.album_id=$2::bigint AND rt.user_id<>$1::bigint`,[u.id,albumId,reviewId]);
+   }
+  }else if(previous.rowCount){
+   await client.query('DELETE FROM reviews WHERE id=$1',[previous.rows[0].id]);
+  }
+  await client.query('COMMIT');return send(res,201,{ok:true});
+ }catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
 }
 const reviewReaction=path.match(/^\/api\/reviews\/(\d+)\/reaction$/);
 if(reviewReaction&&method==='POST'){
@@ -436,8 +455,8 @@ if(reviewReaction&&method==='POST'){
  return send(res,200,{...counts.rows[0],reaction});
 }
 if(path==='/api/comments'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.email_verified)return send(res,403,{error:'Подтверди почту.'});const reviewId=Number(b.review_id),body=String(b.body||'').trim();if(!Number.isSafeInteger(reviewId)||reviewId<1||!body||body.length>2000)return send(res,400,{error:'Напиши комментарий до 2000 символов.'});const client=await db().connect();try{await client.query('BEGIN');const r=await client.query('INSERT INTO comments(user_id,review_id,parent_id,body) VALUES($1,$2,NULL,$3) RETURNING id',[u.id,reviewId,body]);await client.query(`INSERT INTO user_notifications(user_id,actor_id,album_id,review_id,kind)
- SELECT DISTINCT target.user_id,$1,rv.album_id,$2,'comment' FROM reviews rv
+ SELECT DISTINCT target.user_id,$1::bigint,rv.album_id,$2::bigint,'comment' FROM reviews rv
  JOIN LATERAL (SELECT rv.user_id UNION SELECT c.user_id FROM comments c WHERE c.review_id=rv.id) target ON TRUE
- WHERE rv.id=$2 AND target.user_id<>$1`,[u.id,reviewId]);await client.query('COMMIT');return send(res,201,{id:r.rows[0].id})}catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}}
+ WHERE rv.id=$2::bigint AND target.user_id<>$1::bigint`,[u.id,reviewId]);await client.query('COMMIT');return send(res,201,{id:r.rows[0].id})}catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}}
 return send(res,404,{error:'API endpoint не найден.'});
 }catch(e){console.error(e);return send(res,500,{error:e.code==='23503'?'Связанный релиз или исполнитель не найден.':'Ошибка сервера. Проверь базу данных и настройки Vercel.'});}}
