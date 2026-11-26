@@ -12,7 +12,7 @@ const sha=s=>createHash('sha256').update(s).digest('hex');
 const cookie=(value,age)=>`rom_session=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${age}`;
 function cookies(req){return Object.fromEntries((req.headers.cookie||'').split(';').map(s=>s.trim().split('=').slice(0,2)).filter(x=>x.length===2));}
 const send=(res,status,data)=>res.status(status).json(data);
-const safe=u=>u&&({id:u.id,public_id:u.public_id,username:u.username,email:u.email,bio:u.bio,avatar_url:u.avatar_url,avatar_decoration:u.avatar_decoration,email_verified:u.email_verified,is_verified:u.is_verified,is_admin:u.is_admin,is_artist:u.is_artist,background_theme:u.background_theme,background_color:u.background_color});
+const safe=u=>u&&({id:u.id,public_id:u.public_id,username:u.username,email:u.email,bio:u.bio,avatar_url:u.avatar_url,avatar_decoration:u.avatar_decoration,avatar_bg_color:u.avatar_bg_color,email_verified:u.email_verified,is_verified:u.is_verified,is_admin:u.is_admin,is_artist:u.is_artist,background_theme:u.background_theme,background_color:u.background_color});
 async function me(req){const t=cookies(req).rom_session;if(!t)return null;const r=await q(`SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=$1 AND s.expires_at>NOW()`,[sha(t)]);return r.rows[0]||null;}
 async function session(res,user){const t=token();await q(`INSERT INTO sessions(id,user_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '30 days')`,[sha(t),user.id]);res.setHeader('Set-Cookie',cookie(t,2592000));}
 async function sendVerification(user){
@@ -113,19 +113,22 @@ if(path==='/api/login'&&method==='POST'){const email=String(b.email||b.login||''
 if(path==='/api/logout'&&method==='POST'){const t=cookies(req).rom_session;if(t)await q('DELETE FROM sessions WHERE id=$1',[sha(t)]);res.setHeader('Set-Cookie',cookie('',0));return send(res,200,{ok:true});}
 if(path==='/api/resend-verification'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(u.email_verified)return send(res,400,{error:'Почта уже подтверждена.'});const last=await q(`SELECT 1 FROM email_tokens WHERE user_id=$1 AND expires_at>NOW()+INTERVAL '9 minutes'`,[u.id]);if(last.rowCount)return send(res,429,{error:'Код уже отправлен. Подожди минуту и попробуй снова.'});try{await sendVerification(u);return send(res,200,{ok:true});}catch(err){console.error('Gmail verification error:',err.message);return send(res,502,{error:'Не удалось отправить письмо. Проверь настройки Gmail в Vercel и логи сервера.'});}}
 if(path==='/api/decorations'&&method==='GET'){
- const r=await q('SELECT id,name,description,image_url AS image FROM avatar_decorations WHERE active=TRUE ORDER BY created_at,id');
- return send(res,200,{decorations:r.rows});
+ const u=await me(req);
+ const r=await q(`SELECT d.id,d.name,d.description,d.image_url AS image,d.reviews_required,
+ (SELECT COUNT(*)::int FROM reviews WHERE user_id=$1) AS review_count
+ FROM avatar_decorations d WHERE d.active=TRUE ORDER BY d.created_at,d.id`,[u?.id||0]);
+ return send(res,200,{decorations:r.rows.map(d=>({id:d.id,reviews_required:d.reviews_required,review_count:d.review_count,locked:d.review_count<d.reviews_required,name:d.review_count<d.reviews_required?'Секретное украшение':d.name,description:d.review_count<d.reviews_required?'Напиши '+d.reviews_required+' рецензий, чтобы открыть украшение.':d.description,image:d.review_count<d.reviews_required?null:d.image}))});
 }
 if(path==='/api/admin/decorations'&&method==='GET'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
- const r=await q('SELECT id,name,description,image_url AS image,active,created_at FROM avatar_decorations ORDER BY created_at DESC,id DESC');
+ const r=await q('SELECT id,name,description,image_url AS image,reviews_required,active,created_at FROM avatar_decorations ORDER BY created_at DESC,id DESC');
  return send(res,200,{decorations:r.rows});
 }
 if(path==='/api/admin/decorations'&&method==='POST'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
- const name=String(b.name||'').trim(),description=String(b.description||'').trim(),image=String(b.image||'').trim();
- if(name.length<2||name.length>80||description.length>300||!/^https:\/\/[^\s]{1,1500}$/i.test(image))return send(res,400,{error:'Проверь название, описание и PNG.'});
- const r=await q('INSERT INTO avatar_decorations(name,description,image_url) VALUES($1,$2,$3) RETURNING id',[name,description,image]);
+ const name=String(b.name||'').trim(),description=String(b.description||'').trim(),image=String(b.image||'').trim(),reviewsRequired=Number(b.reviews_required||0);
+ if(name.length<2||name.length>80||description.length>300||!Number.isInteger(reviewsRequired)||reviewsRequired<0||reviewsRequired>10000||!/^https:\/\/[^\s]{1,1500}$/i.test(image))return send(res,400,{error:'Проверь название, описание и PNG.'});
+ const r=await q('INSERT INTO avatar_decorations(name,description,image_url,reviews_required) VALUES($1,$2,$3,$4) RETURNING id',[name,description,image,reviewsRequired]);
  return send(res,201,{id:r.rows[0].id});
 }
 const decorItem=path.match(/^\/api\/admin\/decorations\/(\d+)$/);
@@ -140,10 +143,20 @@ if(decorItem&&method==='DELETE'){
  const r=await q('DELETE FROM avatar_decorations WHERE id=$1 RETURNING id',[decorItem[1]]);
  return r.rowCount?send(res,200,{ok:true}):send(res,404,{error:'Украшение не найдено.'});
 }
-if(path==='/api/profile/decoration'&&method==='PATCH'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});const decoration=b.decoration==null?null:String(b.decoration);if(decoration!==null){const exists=await q('SELECT 1 FROM avatar_decorations WHERE id::text=$1 AND active=TRUE',[decoration]);if(!exists.rowCount)return send(res,400,{error:'Украшение недоступно.'});}const r=await q('UPDATE users SET avatar_decoration=$1 WHERE id=$2 RETURNING *',[decoration,u.id]);return send(res,200,{user:safe(r.rows[0])});}
+if(path==='/api/profile/decoration'&&method==='PATCH'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});const decoration=b.decoration==null?null:String(b.decoration);if(decoration!==null){const exists=await q('SELECT reviews_required FROM avatar_decorations WHERE id::text=$1 AND active=TRUE',[decoration]);if(!exists.rowCount)return send(res,400,{error:'Украшение недоступно.'});const count=await q('SELECT COUNT(*)::int AS n FROM reviews WHERE user_id=$1',[u.id]);if(count.rows[0].n<exists.rows[0].reviews_required)return send(res,403,{error:'Секретное украшение пока не открыто.'});}const r=await q('UPDATE users SET avatar_decoration=$1 WHERE id=$2 RETURNING *',[decoration,u.id]);return send(res,200,{user:safe(r.rows[0])});}
+if(path==='/api/profile/avatar'&&method==='PATCH'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ const avatar=String(b.avatar_url||'').trim(),color=String(b.avatar_bg_color||'#555555');
+ if(avatar.length>1000||avatar&&!/^https:\/\//i.test(avatar))return send(res,400,{error:'Некорректная ссылка на аватар.'});
+ if(!/^#[0-9a-f]{6}$/i.test(color))return send(res,400,{error:'Некорректный цвет.'});
+ const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
+ if(Math.max(...rgb)>200||rgb.reduce((x,y)=>x+y,0)>490)return send(res,400,{error:'Выбери более тёмный цвет фона (не белый).'});
+ const r=await q('UPDATE users SET avatar_url=$1,avatar_bg_color=$2 WHERE id=$3 RETURNING *',[avatar,color,u.id]);
+ return send(res,200,{user:safe(r.rows[0])});
+}
 if(path==='/api/profile'&&method==='PATCH'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});const bio=String(b.bio||'').trim(),avatar=String(b.avatar_url||'').trim(),color=String(b.background_color||'#8bff72');if(!/^#[0-9a-f]{6}$/i.test(color))return send(res,400,{error:'Некорректный цвет фона.'});if(bio.length>500||avatar.length>500||avatar&&!/^https:\/\//.test(avatar))return send(res,400,{error:'Описание до 500 символов; аватар — HTTPS-ссылка.'});const r=await q('UPDATE users SET bio=$1,avatar_url=$2,background_color=$3 WHERE id=$4 RETURNING *',[bio,avatar,color,u.id]);return send(res,200,{user:safe(r.rows[0])});}
-const profileById=path.match(/^\/api\/users\/id\/(\d+)$/);if(profileById&&method==='GET'){const r=await q('SELECT id,username,bio,avatar_url,avatar_decoration,email_verified,is_verified,is_artist,background_theme,background_color,created_at FROM users WHERE id=$1',[profileById[1]]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Профиль не найден.'});}
-const profile=path.match(/^\/api\/users\/([^/]+)$/);if(profile&&method==='GET'){const r=await q('SELECT id,username,bio,avatar_url,avatar_decoration,email_verified,is_verified,is_artist,background_theme,background_color,created_at FROM users WHERE LOWER(username)=LOWER($1)',[decodeURIComponent(profile[1])]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Профиль не найден.'});}
+const profileById=path.match(/^\/api\/users\/id\/(\d+)$/);if(profileById&&method==='GET'){const r=await q('SELECT id,username,bio,avatar_url,avatar_decoration,avatar_bg_color,email_verified,is_verified,is_artist,background_theme,background_color,created_at FROM users WHERE id=$1',[profileById[1]]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Профиль не найден.'});}
+const profile=path.match(/^\/api\/users\/([^/]+)$/);if(profile&&method==='GET'){const r=await q('SELECT id,username,bio,avatar_url,avatar_decoration,avatar_bg_color,email_verified,is_verified,is_artist,background_theme,background_color,created_at FROM users WHERE LOWER(username)=LOWER($1)',[decodeURIComponent(profile[1])]);return r.rowCount?send(res,200,{user:r.rows[0]}):send(res,404,{error:'Профиль не найден.'});}
 const activity=path.match(/^\/api\/users\/(\d+)\/activity$/);
 if(activity&&method==='GET'){
  const userId=Number(activity[1]);
@@ -356,7 +369,7 @@ if(adminAlbumDelete&&method==='DELETE'){
 }
 if(path==='/api/artists'&&method==='GET'){const r=await q('SELECT * FROM artists ORDER BY name');return send(res,200,{artists:r.rows});}
 if(path==='/api/albums'&&method==='GET'){const r=await q(`${albumsSql} GROUP BY a.id,ar.name ORDER BY a.created_at DESC LIMIT 300`);return send(res,200,{albums:r.rows});}
-const album=path.match(/^\/api\/albums\/(\d+)$/);if(album&&method==='GET'){const r=await q(`${albumsSql} WHERE a.id=$1 GROUP BY a.id,ar.name`,[album[1]]);if(!r.rowCount)return send(res,404,{error:'Релиз не найден.'});const tracks=await q('SELECT * FROM tracks WHERE album_id=$1 ORDER BY track_number',[album[1]]);const reviews=await q(`SELECT r.id,r.user_id,r.album_id,r.rating,r.title,r.body,r.created_at,u.username,u.is_artist,u.avatar_url FROM reviews r JOIN users u ON u.id=r.user_id WHERE r.album_id=$1 UNION ALL SELECT 0 AS id,rt.user_id,rt.album_id,rt.rating,'' AS title,'' AS body,rt.updated_at AS created_at,u.username,u.is_artist,u.avatar_url FROM ratings rt JOIN users u ON u.id=rt.user_id WHERE rt.album_id=$1 AND NOT EXISTS (SELECT 1 FROM reviews rv WHERE rv.album_id=rt.album_id AND rv.user_id=rt.user_id) ORDER BY created_at DESC`,[album[1]]);const reviewIds=reviews.rows.filter(x=>Number(x.id)>0).map(x=>Number(x.id));
+const album=path.match(/^\/api\/albums\/(\d+)$/);if(album&&method==='GET'){const r=await q(`${albumsSql} WHERE a.id=$1 GROUP BY a.id,ar.name`,[album[1]]);if(!r.rowCount)return send(res,404,{error:'Релиз не найден.'});const tracks=await q('SELECT * FROM tracks WHERE album_id=$1 ORDER BY track_number',[album[1]]);const reviews=await q(`SELECT r.id,r.user_id,r.album_id,r.rating,r.title,r.body,r.created_at,u.username,u.is_artist,u.avatar_url,u.avatar_bg_color FROM reviews r JOIN users u ON u.id=r.user_id WHERE r.album_id=$1 UNION ALL SELECT 0 AS id,rt.user_id,rt.album_id,rt.rating,'' AS title,'' AS body,rt.updated_at AS created_at,u.username,u.is_artist,u.avatar_url,u.avatar_bg_color FROM ratings rt JOIN users u ON u.id=rt.user_id WHERE rt.album_id=$1 AND NOT EXISTS (SELECT 1 FROM reviews rv WHERE rv.album_id=rt.album_id AND rv.user_id=rt.user_id) ORDER BY created_at DESC`,[album[1]]);const reviewIds=reviews.rows.filter(x=>Number(x.id)>0).map(x=>Number(x.id));
  const comments=reviewIds.length?await q(`SELECT c.id,c.review_id,c.user_id,c.body,c.created_at,u.username,u.avatar_url,u.is_artist FROM comments c JOIN users u ON u.id=c.user_id WHERE c.review_id=ANY($1::bigint[]) ORDER BY c.created_at ASC LIMIT 500`,[reviewIds]):{rows:[]};
  const reactions=reviewIds.length?await q(`SELECT review_id,COUNT(*) FILTER(WHERE reaction=1)::int likes,COUNT(*) FILTER(WHERE reaction=-1)::int dislikes FROM review_reactions WHERE review_id=ANY($1::bigint[]) GROUP BY review_id`,[reviewIds]):{rows:[]};
  const viewer=await me(req);

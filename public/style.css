@@ -2141,3 +2141,19 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
   font-size:11px!important;
 }
 .romSettingsRefresh .romAvatarSettingsMeta .romPrivateId:hover {opacity:1;}
+
+/* ROM avatar editor / default avatar / secret decorations */
+.romDefaultAvatarImage{width:100%!important;height:100%!important;object-fit:cover!important;mix-blend-mode:multiply;display:block}
+.romAvatarActionButtons{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.romAvatarConfigureButton{background:#b4ff69!important;color:#101410!important;font-weight:750!important}
+.romAvatarEditor{width:min(520px,100%)}
+.romAvatarEditorPreview{display:grid;place-items:center;background:#080b09;border:1px solid #29392c;border-radius:14px;padding:22px;margin-bottom:16px}
+.romAvatarEditorCircle{width:155px;height:155px;overflow:hidden;border-radius:50%;background:#555;display:grid;place-items:center}
+.romAvatarEditorCircle img{width:100%;height:100%;object-fit:cover}
+.romAvatarEditorUpload{display:flex;flex-direction:column;gap:10px;border:1px dashed #6e995c;border-radius:10px;padding:16px;font-weight:650}
+.romAvatarEditorUpload input{max-width:100%;font:inherit}
+.romAvatarColorRow{display:flex;align-items:center;gap:15px;margin-top:16px}.romAvatarColorRow label{font-weight:700}.romAvatarColorRow input{width:56px;height:38px;border:0;background:transparent;cursor:pointer}.romAvatarColorRow span{color:#aeb7ac;font-size:13px}
+.romDecorChoice.romDecorLocked{border-color:#202422;background:#050505;color:#777}.romDecorMystery{width:44px;height:44px;display:grid;place-items:center;background:#000;border-radius:50%;font-size:29px;color:#fff;font-weight:800}.romDecorLocked small:last-child{font-size:10px;color:#9fa49e}
+@media(max-width:550px){.romAvatarEditor .romDecorActions{flex-wrap:wrap}.romAvatarActionButtons{flex-direction:column;align-items:stretch}}
+
+.romProfileAvatar:has(.romDefaultAvatarImage),.romReviewAvatar:has(.romDefaultAvatarImage),.avatarButton:has(.romDefaultAvatarImage),.romDecorAvatar:has(.romDefaultAvatarImage),.romAvatarSettingsPreview:has(.romDefaultAvatarImage){background:#fff!important}
