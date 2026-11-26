@@ -655,7 +655,7 @@ nav a:hover::after { right: 0; }
   box-shadow: 0 0 12px rgba(184,255,98,.65);
 }
 .featuredNames h2 {
-  font-size: 24px;
+  font-size: 30px;
   letter-spacing: -.04em;
   transform: translateY(4px);
 }
