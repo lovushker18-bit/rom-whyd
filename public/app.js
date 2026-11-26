@@ -229,7 +229,7 @@ function albumCard(album) {
     ? `<div class="catalogCover" style="background-image:url('${escapeAttr(album.cover_url)}')"></div>`
     : `<div class="catalogCover catalogPlaceholder">${escapeHtml(String(album.title || 'R').slice(0, 1).toUpperCase())}</div>`;
   return `<article class="catalogCard" role="button" tabindex="0" onclick="openAlbum(${Number(album.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAlbum(${Number(album.id)})}">
-    ${cover}<div class="catalogInfo"><h3>${escapeHtml(album.title)}</h3><p>${escapeHtml(album.artist_name)}</p><div class="catalogScore"><strong>${romReleaseType(album.release_type)}</strong></div></div>
+    ${cover}<div class="catalogInfo"><h3>${escapeHtml(album.title)}</h3><p>${escapeHtml(album.artist_name)}</p><div class="catalogScore" style="display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%"><strong>${score}</strong><span style="margin-left:auto;font-size:12px;font-weight:600;color:#a3aca4;text-align:right">${romReleaseType(album.release_type)}</span></div></div>
   </article>`;
 }
 
