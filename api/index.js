@@ -150,7 +150,7 @@ if(path==='/api/profile/avatar'&&method==='PATCH'){
  if(avatar.length>1000||avatar&&!/^https:\/\//i.test(avatar))return send(res,400,{error:'Некорректная ссылка на аватар.'});
  if(!/^#[0-9a-f]{6}$/i.test(color))return send(res,400,{error:'Некорректный цвет.'});
  const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
- if(Math.max(...rgb)>200||rgb.reduce((x,y)=>x+y,0)>490)return send(res,400,{error:'Выбери более тёмный цвет фона (не белый).'});
+ if(Math.max(...rgb)-Math.min(...rgb)<=4&&Math.max(...rgb)>160)return send(res,400,{error:'Серый фон должен быть не светлее #A0A0A0.'});
  const r=await q('UPDATE users SET avatar_url=$1,avatar_bg_color=$2 WHERE id=$3 RETURNING *',[avatar,color,u.id]);
  return send(res,200,{user:safe(r.rows[0])});
 }

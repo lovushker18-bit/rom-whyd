@@ -2157,3 +2157,16 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 @media(max-width:550px){.romAvatarEditor .romDecorActions{flex-wrap:wrap}.romAvatarActionButtons{flex-direction:column;align-items:stretch}}
 
 .romProfileAvatar:has(.romDefaultAvatarImage),.romReviewAvatar:has(.romDefaultAvatarImage),.avatarButton:has(.romDefaultAvatarImage),.romDecorAvatar:has(.romDefaultAvatarImage),.romAvatarSettingsPreview:has(.romDefaultAvatarImage){background:#fff!important}
+
+/* Avatar fixes: transparent asset, circular clipping and no artificial ring */
+.romDefaultAvatarImage {mix-blend-mode:normal!important; background-clip:padding-box!important; border-radius:50%!important;}
+.romProfileAvatar:has(.romDefaultAvatarImage),
+.romReviewAvatar:has(.romDefaultAvatarImage),
+.avatarButton:has(.romDefaultAvatarImage),
+.romDecorAvatar:has(.romDefaultAvatarImage),
+.romAvatarSettingsPreview:has(.romDefaultAvatarImage) {background:transparent!important;}
+.romSettingsRefresh .romAvatarSettingsPreview {width:112px!important;height:112px!important;flex:0 0 112px!important;overflow:hidden!important;border-radius:50%!important;display:grid!important;place-items:center!important;background:transparent!important;}
+.romSettingsRefresh .romAvatarSettingsPreview img {display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;border:0!important;outline:0!important;border-radius:50%!important;box-shadow:none!important;object-fit:cover!important;}
+.romAvatarEditorCircle img {mix-blend-mode:normal!important;filter:none!important;opacity:1!important;}
+.romProfileIntro {position:relative;left:-3px;top:3px;}
+@media(max-width:600px){.romSettingsRefresh .romAvatarSettingsPreview{width:88px!important;height:88px!important;flex-basis:88px!important;}}
