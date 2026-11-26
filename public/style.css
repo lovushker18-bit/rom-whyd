@@ -2042,3 +2042,41 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 .romSettingsRefresh .romSettingsManagement{border:1px solid #304136;border-radius:18px;padding:22px!important;background:#0a110d}
 @media(min-width:850px){.romSettingsRefresh .settingsCard:first-of-type .form{max-width:760px}.romSettingsRefresh .romAvatarSettingsRow{max-width:750px}}
 @media(max-width:600px){.romSettingsRefresh .romAvatarSettingsRow{padding:14px}.romSettingsRefresh .romAvatarSettingsPreview img{width:88px!important;height:88px!important}.romSettingsRefresh .settingsCard{padding:20px!important}.romSettingsRefresh .romPrivateId{max-width:100%}}
+
+/* Settings page: remove accumulated top whitespace from pageView and accountPage. */
+#pageView.pageView:has(> .accountPage.romSettingsRefresh) {
+  padding-top: 24px !important;
+}
+#pageView > .accountPage.romSettingsRefresh {
+  margin-top: 0 !important;
+  margin-bottom: 0;
+}
+@media (max-width: 800px) {
+  #pageView.pageView:has(> .accountPage.romSettingsRefresh) {
+    padding-top: 20px !important;
+  }
+}
+
+/* Featured release: align label text, title and artist on one left edge.
+   The decorative dot is positioned independently and does not shift the label. */
+.heroCard .featuredInfo .featuredLabel {
+  position: relative;
+  gap: 0;
+}
+.heroCard .featuredInfo .featuredLabel::before {
+  position: absolute;
+  left: -13px;
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0;
+}
+.heroCard .featuredInfo .featuredNames {
+  margin: 0;
+  padding: 0;
+}
+.heroCard .featuredInfo .featuredNames h2,
+.heroCard .featuredInfo .featuredNames p {
+  margin-left: 0;
+  padding-left: 0;
+  text-indent: 0;
+}
