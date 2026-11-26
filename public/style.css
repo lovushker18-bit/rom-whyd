@@ -1973,3 +1973,15 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 #releasePage .romReviewSocial .romReviewCommentToggle:hover,
 #releasePage .romReviewSocial .romReviewCommentToggle.is-selected{color:#e2ece4!important}
 @media(max-width:740px){#releasePage .romReviewSocial{margin-left:0!important}}
+
+/* Notification feed */
+.romNotifications{display:flex;flex-direction:column;gap:9px;max-width:780px;margin:20px auto}
+.romNotificationItem{display:flex;align-items:flex-start;text-align:left;gap:12px;width:100%;padding:17px 19px;border:1px solid #28332c;border-radius:12px;background:#111813;color:#d4dfd6;cursor:pointer;font:inherit;transition:border-color .15s,background .15s}
+.romNotificationItem:hover{border-color:#669a5a;background:#172219}
+.romNotificationItem.is-unread{background:#16231a;border-color:#3a6740}
+.romNotificationDot{width:7px;height:7px;border-radius:50%;background:transparent;flex:0 0 7px;margin-top:9px}
+.romNotificationItem.is-unread .romNotificationDot{background:#a8ff6a}
+.romNotificationText{line-height:1.5}.romNotificationText strong{color:#f0f6f0}.romNotificationText small{display:block;color:#859487;margin-top:5px;font-size:12px}
+.romNotificationsEmpty{color:#9ba79e;padding:20px}
+.romReviewHighlighted{outline:1px solid #a8ff6a;outline-offset:3px;transition:outline-color .8s}
+.catalogScore strong{color:#b3ff72;font-size:13px;font-weight:750}

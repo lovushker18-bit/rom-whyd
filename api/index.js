@@ -147,6 +147,20 @@ if(helpAction&&method==='PATCH'){
  const r=await q('UPDATE help_requests SET status=$1,reviewed_at=NOW() WHERE id=$2 RETURNING id',['closed',helpAction[1]]);
  return r.rowCount?send(res,200,{ok:true}):send(res,404,{error:'Обращение не найдено.'});
 }
+if(path==='/api/notifications'&&method==='GET'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ const unread=await q('SELECT COUNT(*)::int AS count FROM user_notifications WHERE user_id=$1 AND read_at IS NULL',[u.id]);
+ if(new URL(req.url,'https://rom.local').searchParams.get('count')==='1')return send(res,200,{unread:unread.rows[0].count});
+ const items=await q(`SELECT n.id,n.kind,n.album_id,n.review_id,n.created_at,n.read_at,u.username AS actor_username,a.title AS album_title
+ FROM user_notifications n JOIN users u ON u.id=n.actor_id JOIN albums a ON a.id=n.album_id WHERE n.user_id=$1 ORDER BY n.created_at DESC LIMIT 80`,[u.id]);
+ return send(res,200,{unread:unread.rows[0].count,items:items.rows});
+}
+const notificationRead=path.match(/^\/api\/notifications\/(\d+)\/read$/);
+if(notificationRead&&method==='POST'){
+ const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});
+ await q('UPDATE user_notifications SET read_at=COALESCE(read_at,NOW()) WHERE id=$1 AND user_id=$2',[notificationRead[1],u.id]);
+ return send(res,200,{ok:true});
+}
 if(path==='/api/admin/pending-count'&&method==='GET'){
  const u=await me(req);if(!u?.is_admin)return send(res,403,{error:'Только администратор.'});
  const r=await q("SELECT (SELECT COUNT(*) FROM track_submissions WHERE status='pending') + (SELECT COUNT(*) FROM username_change_requests WHERE status='pending') + (SELECT COUNT(*) FROM help_requests WHERE status='pending') AS count");
@@ -364,7 +378,8 @@ if(path==='/api/reviews'&&method==='POST'){
  const rating=Number(b.rating),albumId=Number(b.album_id),title=String(b.title||'').trim(),body=String(b.body||'').trim();
  if(!validRating(rating)||!Number.isInteger(albumId)||albumId<1)return send(res,400,{error:'Введи целую оценку от 1 до 90.'});
  if(title&&!body)return send(res,400,{error:'Если указан заголовок, добавь текст рецензии или очисти заголовок.'});
- const client=await db().connect();try{await client.query('BEGIN');await client.query('INSERT INTO ratings(user_id,album_id,rating) VALUES($1,$2,$3) ON CONFLICT(user_id,album_id) DO UPDATE SET rating=EXCLUDED.rating,updated_at=NOW()',[u.id,albumId,rating]);await client.query('DELETE FROM reviews WHERE user_id=$1 AND album_id=$2',[u.id,albumId]);if(body)await client.query('INSERT INTO reviews(user_id,album_id,rating,title,body) VALUES($1,$2,$3,$4,$5)',[u.id,albumId,rating,title.slice(0,150),body.slice(0,10000)]);await client.query('COMMIT');return send(res,201,{ok:true})}catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
+ const client=await db().connect();try{await client.query('BEGIN');await client.query('INSERT INTO ratings(user_id,album_id,rating) VALUES($1,$2,$3) ON CONFLICT(user_id,album_id) DO UPDATE SET rating=EXCLUDED.rating,updated_at=NOW()',[u.id,albumId,rating]);await client.query('DELETE FROM reviews WHERE user_id=$1 AND album_id=$2',[u.id,albumId]);if(body){const created=await client.query('INSERT INTO reviews(user_id,album_id,rating,title,body) VALUES($1,$2,$3,$4,$5) RETURNING id',[u.id,albumId,rating,title.slice(0,150),body.slice(0,10000)]);await client.query(`INSERT INTO user_notifications(user_id,actor_id,album_id,review_id,kind)
+ SELECT DISTINCT rt.user_id,$1,$2,$3,'review' FROM ratings rt WHERE rt.album_id=$2 AND rt.user_id<>$1`,[u.id,albumId,created.rows[0].id]);}await client.query('COMMIT');return send(res,201,{ok:true})}catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
 }
 const reviewReaction=path.match(/^\/api\/reviews\/(\d+)\/reaction$/);
 if(reviewReaction&&method==='POST'){
@@ -377,6 +392,9 @@ if(reviewReaction&&method==='POST'){
  const counts=await q('SELECT COUNT(*) FILTER(WHERE reaction=1)::int likes,COUNT(*) FILTER(WHERE reaction=-1)::int dislikes FROM review_reactions WHERE review_id=$1',[reviewId]);
  return send(res,200,{...counts.rows[0],reaction});
 }
-if(path==='/api/comments'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.email_verified)return send(res,403,{error:'Подтверди почту.'});const reviewId=Number(b.review_id),body=String(b.body||'').trim();if(!Number.isSafeInteger(reviewId)||reviewId<1||!body||body.length>2000)return send(res,400,{error:'Напиши комментарий до 2000 символов.'});const r=await q('INSERT INTO comments(user_id,review_id,parent_id,body) VALUES($1,$2,NULL,$3) RETURNING id',[u.id,reviewId,body]);return send(res,201,{id:r.rows[0].id});}
+if(path==='/api/comments'&&method==='POST'){const u=await me(req);if(!u)return send(res,401,{error:'Войди в аккаунт.'});if(!u.email_verified)return send(res,403,{error:'Подтверди почту.'});const reviewId=Number(b.review_id),body=String(b.body||'').trim();if(!Number.isSafeInteger(reviewId)||reviewId<1||!body||body.length>2000)return send(res,400,{error:'Напиши комментарий до 2000 символов.'});const client=await db().connect();try{await client.query('BEGIN');const r=await client.query('INSERT INTO comments(user_id,review_id,parent_id,body) VALUES($1,$2,NULL,$3) RETURNING id',[u.id,reviewId,body]);await client.query(`INSERT INTO user_notifications(user_id,actor_id,album_id,review_id,kind)
+ SELECT DISTINCT target.user_id,$1,rv.album_id,$2,'comment' FROM reviews rv
+ JOIN LATERAL (SELECT rv.user_id UNION SELECT c.user_id FROM comments c WHERE c.review_id=rv.id) target ON TRUE
+ WHERE rv.id=$2 AND target.user_id<>$1`,[u.id,reviewId]);await client.query('COMMIT');return send(res,201,{id:r.rows[0].id})}catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}}
 return send(res,404,{error:'API endpoint не найден.'});
 }catch(e){console.error(e);return send(res,500,{error:e.code==='23503'?'Связанный релиз или исполнитель не найден.':'Ошибка сервера. Проверь базу данных и настройки Vercel.'});}}
