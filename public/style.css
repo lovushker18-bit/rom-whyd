@@ -1906,7 +1906,7 @@ body.romGridActive::after{content:"";pointer-events:none;position:fixed;left:0;r
 }
 .romProfileIntro h1 .romProfileArtistMark {
     position: relative !important;
-    left: -13px !important;
+    left: -1px !important;
 }
 .romReviewIdentity .artistBadge,
 .romReviewIdentity .romProfileArtistMark {
